@@ -140,6 +140,8 @@ const defaultState = {
   activeTheme: "minimal",
   premium: false,
   pushEnabled: false,
+  meetupConnected: false,
+  meetupEventsSynced: 0,
   selectedShopCategory: "Boost-Items",
   stocks: initialStocks,
   etfs: initialEtfs,
@@ -447,6 +449,26 @@ function renderLeaderboard() {
     .join("");
 }
 
+function renderMeetupConnection() {
+  const card = document.getElementById("meetup-card");
+  const status = state.meetupConnected ? "Verbunden" : "Nicht verbunden";
+  const detail = state.meetupConnected
+    ? `${state.meetupEventsSynced} Meetup-Events fuer Boni und Clan-Aktivitaet synchronisiert.`
+    : "Verbinde Meetup, um lokale Investor-Events als kleine In-Game-Boni zu synchronisieren.";
+  const buttonLabel = state.meetupConnected ? "Meetup syncen" : "Connect with Meetup";
+  card.innerHTML = `
+    <div class="meetup-mark">M</div>
+    <div class="meetup-copy">
+      <div>
+        <strong>Meetup</strong>
+        <span class="meetup-status ${state.meetupConnected ? "connected" : ""}">${status}</span>
+      </div>
+      <p>${detail}</p>
+    </div>
+    <button data-action="connect-meetup">${buttonLabel}</button>
+  `;
+}
+
 function applyTheme() {
   document.body.className = "";
   const theme = themeCatalog.find((item) => item.id === state.activeTheme);
@@ -478,6 +500,7 @@ function render() {
   renderShop();
   renderThemes();
   renderLeaderboard();
+  renderMeetupConnection();
   applyTheme();
   document.getElementById("premium-toggle").checked = state.premium;
   document.getElementById("push-toggle").checked = state.pushEnabled;
@@ -708,6 +731,25 @@ function onlineAction(action) {
   render();
 }
 
+function connectMeetup() {
+  if (!state.meetupConnected) {
+    state.meetupConnected = true;
+    state.meetupEventsSynced = 3;
+    state.gems += 3;
+    state.cash += 180;
+    addXp(18);
+    notify("Meetup verbunden", "3 lokale Events synchronisiert: 180 EUR und 3 Diamanten erhalten.", true);
+    render();
+    return;
+  }
+
+  state.meetupEventsSynced += 1;
+  state.cash += 60;
+  addXp(6);
+  notify("Meetup aktualisiert", "Ein neues Event wurde mit deinem Clan-Feed synchronisiert.");
+  render();
+}
+
 document.querySelector(".bottom-nav").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tab]");
   if (!button) return;
@@ -731,6 +773,7 @@ document.body.addEventListener("click", (event) => {
   if (action === "buy-property") buyOrUpgradeProperty(id, false);
   if (action === "upgrade-property") buyOrUpgradeProperty(id, true);
   if (action === "paint-property") paintProperty(id);
+  if (action === "connect-meetup") connectMeetup();
   if (action === "shop-category") {
     state.selectedShopCategory = category;
     render();

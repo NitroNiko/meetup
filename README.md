@@ -39,6 +39,6 @@ http://localhost:8080
 - Design-Editionen wie Midnight, Ice, Carbon, Pinkwave, Minimal und Neon.
 - Battle Pass mit 50 Leveln, XP-Fortschritt und fairen Diamant-Belohnungen.
 - Online-System-Prototyp fuer Geld senden, Item-Tausch, riskante Coups,
-  Clan-Boni und Rangliste.
+  Clan-Boni, Meetup-Verbindung und Rangliste.
 
 Der Spielstand wird lokal im Browser gespeichert.

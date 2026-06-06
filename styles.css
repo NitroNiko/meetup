@@ -213,6 +213,7 @@ button {
 .ghost-button,
 .rule-builder button,
 .online-grid button,
+.meetup-card button,
 .shop-card button,
 .market-card button,
 .property-actions button {
@@ -601,6 +602,69 @@ button {
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
+}
+
+.meetup-card {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(36, 52, 71, 0.06), rgba(199, 167, 108, 0.12));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+  margin-bottom: 12px;
+  padding: 13px;
+}
+
+.meetup-mark {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 18px;
+  color: #fff;
+  display: grid;
+  font-weight: 850;
+  height: 46px;
+  place-items: center;
+  width: 46px;
+}
+
+.meetup-copy {
+  min-width: 0;
+}
+
+.meetup-copy > div {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.meetup-copy p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  margin: 5px 0 0;
+}
+
+.meetup-status {
+  background: rgba(107, 114, 128, 0.12);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 820;
+  letter-spacing: 0.07em;
+  padding: 6px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.meetup-status.connected {
+  background: rgba(22, 122, 85, 0.12);
+  color: var(--good);
+}
+
+.meetup-card button {
+  grid-column: 1 / -1;
 }
 
 .leaderboard {
