@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Capital Atelier</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="phone-shell" id="app">
+      <section class="screen">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Capital Atelier</p>
+            <h1 id="screen-title">Aktien</h1>
+          </div>
+          <div class="wallet" aria-label="Spielwaehrungen">
+            <span class="pill"><span class="coin euro"></span><span id="cash-balance">0</span></span>
+            <span class="pill"><span class="coin gem"></span><span id="gem-balance">0</span></span>
+          </div>
+        </header>
+
+        <section class="hero-card">
+          <div>
+            <p class="eyebrow">Net Worth</p>
+            <strong id="net-worth">0 EUR</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Battle Pass</p>
+            <strong id="pass-level">Level 1</strong>
+          </div>
+          <div class="progress-track" aria-label="XP Fortschritt">
+            <span id="xp-progress"></span>
+          </div>
+        </section>
+
+        <section id="tab-stocks" class="tab-page active" aria-labelledby="nav-stocks">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Markt</p>
+              <h2>Aktien mit realistischen Schwankungen</h2>
+            </div>
+            <button class="ghost-button" id="simulate-crash">Crash simulieren</button>
+          </div>
+          <div class="market-grid" id="stock-list"></div>
+
+          <article class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">Auto-Trader</p>
+                <h2>Regeln</h2>
+              </div>
+              <span class="limit-chip" id="rule-limit">0 / 3 aktiv</span>
+            </div>
+            <div class="rule-builder">
+              <select id="rule-asset"></select>
+              <select id="rule-condition">
+                <option value="gain">steigt um %</option>
+                <option value="loss">faellt um %</option>
+                <option value="above">Preis ueber EUR</option>
+                <option value="below">Preis unter EUR</option>
+              </select>
+              <input id="rule-value" type="number" min="1" value="5" />
+              <select id="rule-action">
+                <option value="buy">kaufen</option>
+                <option value="sell">verkaufen</option>
+              </select>
+              <button id="add-rule">Regel anlegen</button>
+            </div>
+            <div id="rules-list" class="rules-list"></div>
+          </article>
+        </section>
+
+        <section id="tab-realestate" class="tab-page" aria-labelledby="nav-realestate">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Portfolio</p>
+              <h2>Immobilien kaufen, vermieten, verbessern</h2>
+            </div>
+            <button class="ghost-button" id="collect-rent">Miete einziehen</button>
+          </div>
+          <div id="property-list" class="property-stack"></div>
+        </section>
+
+        <section id="tab-etfs" class="tab-page" aria-labelledby="nav-etfs">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Langfristig</p>
+              <h2>ETFs fuer ruhige Progression</h2>
+            </div>
+            <button class="ghost-button" id="claim-daily">Daily Chance</button>
+          </div>
+          <div id="etf-list" class="market-grid"></div>
+          <article class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">Events</p>
+                <h2>Heute aktiv</h2>
+              </div>
+            </div>
+            <div class="event-strip" id="event-strip"></div>
+          </article>
+        </section>
+
+        <section id="tab-shop" class="tab-page" aria-labelledby="nav-shop">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Boutique</p>
+              <h2>Shop mit dynamischen Preisen</h2>
+            </div>
+            <span class="limit-chip">EUR, Diamanten, Echtgeld</span>
+          </div>
+          <div class="category-tabs" id="shop-categories"></div>
+          <div id="shop-list" class="shop-list"></div>
+        </section>
+
+        <section id="tab-profile" class="tab-page" aria-labelledby="nav-profile">
+          <article class="profile-card">
+            <div class="avatar-frame">
+              <div class="avatar">
+                <span></span>
+              </div>
+            </div>
+            <div>
+              <p class="eyebrow">Investor Profil</p>
+              <h2>Minimaler Avatar</h2>
+              <p class="muted">Rahmen, Kleidung und Hintergruende geben kleine, faire Boni.</p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">Design Edition</p>
+                <h2>UI Theme</h2>
+              </div>
+              <span class="limit-chip" id="active-theme-label">Minimal Edition</span>
+            </div>
+            <div id="theme-list" class="theme-list"></div>
+          </article>
+
+          <article class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">Online</p>
+                <h2>Clans, Handel, Rangliste</h2>
+              </div>
+            </div>
+            <div class="online-grid">
+              <button id="send-cash">Geld senden</button>
+              <button id="trade-item">Item tauschen</button>
+              <button id="risk-steal">Riskanter Coup</button>
+              <button id="join-clan">Clan Bonus</button>
+            </div>
+            <ol class="leaderboard" id="leaderboard"></ol>
+          </article>
+
+          <article class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">Premium</p>
+                <h2>Fairer Komfort</h2>
+              </div>
+              <label class="switch">
+                <input id="premium-toggle" type="checkbox" />
+                <span></span>
+              </label>
+            </div>
+            <p class="muted">Premium erlaubt mehr aktive Auto-Trader-Regeln und kosmetische Battle-Pass-Belohnungen, ohne uebermaechtige Boni.</p>
+          </article>
+
+          <article class="panel">
+            <div class="section-header compact">
+              <div>
+                <p class="eyebrow">Push</p>
+                <h2>Optionale Benachrichtigungen</h2>
+              </div>
+              <label class="switch">
+                <input id="push-toggle" type="checkbox" />
+                <span></span>
+              </label>
+            </div>
+            <p class="muted">Informiert ueber Auto-Trader-Ausloesungen, Kursbewegungen, Mieteinnahmen, Events und Daily Rewards.</p>
+          </article>
+        </section>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Hauptnavigation">
+        <button id="nav-stocks" class="active" data-tab="stocks">Aktien</button>
+        <button id="nav-realestate" data-tab="realestate">Immobilien</button>
+        <button id="nav-etfs" data-tab="etfs">ETFs</button>
+        <button id="nav-shop" data-tab="shop">Shop</button>
+        <button id="nav-profile" data-tab="profile">Profil</button>
+      </nav>
+    </main>
+
+    <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
