@@ -204,9 +204,15 @@ button {
 .section-header {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
   margin: 18px 0 12px;
+}
+
+.section-header > div {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .section-header.compact {
@@ -632,7 +638,7 @@ button:disabled {
   border-radius: var(--radius-lg);
   display: grid;
   gap: 12px;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   margin-bottom: 12px;
   padding: 13px;
 }
@@ -656,8 +662,9 @@ button:disabled {
 .meetup-copy > div {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .meetup-copy p {
