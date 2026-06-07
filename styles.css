@@ -798,6 +798,7 @@ button:disabled {
 }
 
 .toast {
+  align-items: center;
   animation: slide-in 220ms ease both;
   backdrop-filter: blur(18px);
   background: rgba(17, 24, 39, 0.78);
@@ -805,9 +806,13 @@ button:disabled {
   border-radius: 999px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
   color: #fff;
+  display: flex;
+  gap: 5px;
   justify-self: center;
-  max-width: min(100%, 330px);
-  padding: 8px 12px;
+  max-width: calc(100% - 20px);
+  min-height: 30px;
+  overflow: hidden;
+  padding: 6px 10px;
   width: fit-content;
 }
 
@@ -821,6 +826,10 @@ button:disabled {
 .toast span {
   font-size: 0.72rem;
   line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @keyframes slide-in {
