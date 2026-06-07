@@ -793,7 +793,7 @@ button:disabled {
   pointer-events: none;
   position: absolute;
   right: 16px;
-  top: 76px;
+  top: 104px;
   z-index: 12;
 }
 
