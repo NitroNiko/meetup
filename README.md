@@ -38,7 +38,8 @@ http://localhost:8080
 - Dynamische Shop-Preise fuer Euro-, Diamant- und Echtgeld-Angebote.
 - Minimalistischer Avatar mit kosmetischen Boni.
 - Design-Editionen wie Midnight, Ice, Carbon, Pinkwave, Minimal und Neon.
-- Battle Pass mit 50 Leveln, XP-Fortschritt und fairen Diamant-Belohnungen.
+- Schwererer Battle Pass mit 50 Leveln, steigenden XP-Anforderungen,
+  XP-Fortschritt und sichtbarer naechster Diamant-Belohnung.
 - Online-System-Prototyp fuer Geld senden, Item-Tausch, riskante Coups,
   simulierte Gegner, Clan-Boni, Meetup-Verbindung und Rangliste.
 

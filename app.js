@@ -7,6 +7,8 @@ const rarityClass = {
   "Ultra-Limitierte Edition": "ultra",
 };
 
+const maxPassLevel = 50;
+
 const themeCatalog = [
   {
     id: "minimal",
@@ -260,17 +262,30 @@ function opponentWorth(opponent) {
   );
 }
 
+function xpNeededForLevel(level) {
+  return 180 + (level - 1) * 20;
+}
+
+function passRewardForLevel(level) {
+  if (level > maxPassLevel) return { gems: 0, label: "Alles freigeschaltet" };
+  if (level % 10 === 0) return { gems: 6, label: "6 Diamanten" };
+  if (level % 5 === 0) return { gems: 4, label: "4 Diamanten" };
+  if (level % 3 === 0) return { gems: 2, label: "2 Diamanten" };
+  return { gems: 1, label: "1 Diamant" };
+}
+
 function addXp(amount) {
   const themeBonus = state.activeTheme === "minimal" ? 1 : 1.01;
   const premiumBonus = state.premium ? 1.04 : 1;
   state.xp += Math.round(amount * themeBonus * premiumBonus);
-  while (state.xp >= 100) {
-    state.xp -= 100;
-    state.passLevel = Math.min(50, state.passLevel + 1);
-    const reward = state.passLevel % 5 === 0 ? 4 : 1;
-    state.gems += reward;
-    notify("Battle Pass Level " + state.passLevel, "Belohnung erhalten: " + reward + " Diamanten.");
+  while (state.passLevel < maxPassLevel && state.xp >= xpNeededForLevel(state.passLevel)) {
+    state.xp -= xpNeededForLevel(state.passLevel);
+    state.passLevel += 1;
+    const reward = passRewardForLevel(state.passLevel);
+    state.gems += reward.gems;
+    notify("Battle Pass Level " + state.passLevel, "Belohnung erhalten: " + reward.label + ".");
   }
+  if (state.passLevel >= maxPassLevel) state.xp = 0;
 }
 
 function notify(title, message, important = false) {
@@ -293,7 +308,14 @@ function updateWallet() {
   document.getElementById("gem-balance").textContent = gems(state.gems);
   document.getElementById("net-worth").textContent = euro(netWorth());
   document.getElementById("pass-level").textContent = "Level " + state.passLevel + " / 50";
-  document.getElementById("xp-progress").style.width = `${state.xp}%`;
+  const xpNeeded = xpNeededForLevel(state.passLevel);
+  const nextReward = passRewardForLevel(state.passLevel + 1);
+  document.getElementById("pass-xp").textContent =
+    state.passLevel >= maxPassLevel ? "Max Level" : `${state.xp} / ${xpNeeded} XP`;
+  document.getElementById("pass-next-reward").textContent =
+    state.passLevel >= maxPassLevel ? "Alle Belohnungen" : "Level " + (state.passLevel + 1) + ": " + nextReward.label;
+  document.getElementById("xp-progress").style.width =
+    state.passLevel >= maxPassLevel ? "100%" : `${Math.min(100, (state.xp / xpNeeded) * 100)}%`;
 }
 
 function renderRoundHud() {
