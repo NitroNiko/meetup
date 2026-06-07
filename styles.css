@@ -185,6 +185,14 @@ button {
   width: 12%;
 }
 
+.round-log {
+  color: var(--muted);
+  font-size: 0.84rem;
+  grid-column: 1 / -1;
+  line-height: 1.35;
+  margin: -2px 0 0;
+}
+
 .tab-page {
   display: none;
 }
@@ -226,17 +234,30 @@ button {
   padding: 11px 14px;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .ghost-button {
   background: rgba(36, 52, 71, 0.08);
   box-shadow: none;
   color: var(--accent);
 }
 
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .market-grid,
 .property-stack,
 .shop-list,
 .theme-list,
-.rules-list {
+.rules-list,
+.opponent-strip {
   display: grid;
   gap: 12px;
 }
@@ -665,6 +686,39 @@ button {
 
 .meetup-card button {
   grid-column: 1 / -1;
+}
+
+.opponent-strip {
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.opponent-card {
+  align-items: center;
+  background: rgba(17, 24, 39, 0.04);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 11px 12px;
+}
+
+.opponent-card strong,
+.leaderboard small {
+  display: block;
+}
+
+.opponent-card small,
+.leaderboard small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+.opponent-card span {
+  font-weight: 820;
+  white-space: nowrap;
 }
 
 .leaderboard {

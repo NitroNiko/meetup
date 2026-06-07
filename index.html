@@ -29,9 +29,18 @@
             <p class="eyebrow">Battle Pass</p>
             <strong id="pass-level">Level 1</strong>
           </div>
+          <div>
+            <p class="eyebrow">Runde</p>
+            <strong id="round-number">Runde 1</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Miete</p>
+            <strong id="rent-status">Offen</strong>
+          </div>
           <div class="progress-track" aria-label="XP Fortschritt">
             <span id="xp-progress"></span>
           </div>
+          <p class="round-log" id="round-log">Runde 1: Markt eroeffnet.</p>
         </section>
 
         <section id="tab-stocks" class="tab-page active" aria-labelledby="nav-stocks">
@@ -40,7 +49,10 @@
               <p class="eyebrow">Markt</p>
               <h2>Aktien mit realistischen Schwankungen</h2>
             </div>
-            <button class="ghost-button" id="simulate-crash">Crash simulieren</button>
+            <div class="header-actions">
+              <button class="ghost-button" id="next-round">Naechste Runde</button>
+              <button class="ghost-button" id="simulate-crash">Crash-Runde</button>
+            </div>
           </div>
           <div class="market-grid" id="stock-list"></div>
 
@@ -147,6 +159,7 @@
               </div>
             </div>
             <div class="meetup-card" id="meetup-card"></div>
+            <div class="opponent-strip" id="opponent-strip"></div>
             <div class="online-grid">
               <button id="send-cash">Geld senden</button>
               <button id="trade-item">Item tauschen</button>
