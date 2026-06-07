@@ -793,7 +793,7 @@ button:disabled {
   pointer-events: none;
   position: absolute;
   right: 16px;
-  top: 12px;
+  top: 76px;
   z-index: 12;
 }
 
@@ -809,7 +809,7 @@ button:disabled {
   display: flex;
   gap: 5px;
   justify-self: center;
-  max-width: calc(100% - 20px);
+  max-width: min(calc(100% - 20px), 270px);
   min-height: 30px;
   overflow: hidden;
   padding: 6px 10px;
