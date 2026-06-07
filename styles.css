@@ -159,6 +159,7 @@ button {
   gap: 14px;
   grid-template-columns: 1fr 1fr;
   margin-bottom: 18px;
+  margin-top: 70px;
   padding: 18px;
 }
 
@@ -185,6 +186,14 @@ button {
   width: 12%;
 }
 
+.round-log {
+  color: var(--muted);
+  font-size: 0.84rem;
+  grid-column: 1 / -1;
+  line-height: 1.35;
+  margin: -2px 0 0;
+}
+
 .tab-page {
   display: none;
 }
@@ -196,9 +205,15 @@ button {
 .section-header {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
   margin: 18px 0 12px;
+}
+
+.section-header > div {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .section-header.compact {
@@ -213,6 +228,7 @@ button {
 .ghost-button,
 .rule-builder button,
 .online-grid button,
+.meetup-card button,
 .shop-card button,
 .market-card button,
 .property-actions button {
@@ -225,17 +241,38 @@ button {
   padding: 11px 14px;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .ghost-button {
   background: rgba(36, 52, 71, 0.08);
   box-shadow: none;
   color: var(--accent);
 }
 
+.ghost-button:disabled {
+  background: rgba(36, 52, 71, 0.14);
+  border: 1px solid rgba(36, 52, 71, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  color: var(--accent);
+  font-weight: 820;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .market-grid,
 .property-stack,
 .shop-list,
 .theme-list,
-.rules-list {
+.rules-list,
+.opponent-strip {
   display: grid;
   gap: 12px;
 }
@@ -603,6 +640,103 @@ button {
   grid-template-columns: 1fr 1fr;
 }
 
+.meetup-card {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(36, 52, 71, 0.06), rgba(199, 167, 108, 0.12));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin-bottom: 12px;
+  padding: 13px;
+}
+
+.meetup-mark {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 18px;
+  color: #fff;
+  display: grid;
+  font-weight: 850;
+  height: 46px;
+  place-items: center;
+  width: 46px;
+}
+
+.meetup-copy {
+  min-width: 0;
+}
+
+.meetup-copy > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.meetup-copy p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  margin: 5px 0 0;
+}
+
+.meetup-status {
+  background: rgba(107, 114, 128, 0.12);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 820;
+  letter-spacing: 0.07em;
+  padding: 6px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.meetup-status.connected {
+  background: rgba(22, 122, 85, 0.12);
+  color: var(--good);
+}
+
+.meetup-card button {
+  grid-column: 1 / -1;
+}
+
+.opponent-strip {
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.opponent-card {
+  align-items: center;
+  background: rgba(17, 24, 39, 0.04);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 11px 12px;
+}
+
+.opponent-card strong,
+.leaderboard small {
+  display: block;
+}
+
+.opponent-card small,
+.leaderboard small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+.opponent-card span {
+  font-weight: 820;
+  white-space: nowrap;
+}
+
 .leaderboard {
   display: grid;
   gap: 9px;
@@ -653,28 +787,50 @@ button {
 }
 
 .toast-stack {
+  align-items: center;
   display: grid;
-  gap: 10px;
-  max-width: 360px;
-  position: fixed;
-  right: 18px;
-  top: 18px;
-  z-index: 10;
+  gap: 6px;
+  left: 16px;
+  pointer-events: none;
+  position: absolute;
+  right: 16px;
+  top: 104px;
+  z-index: 12;
 }
 
 .toast {
-  animation: slide-in 260ms ease both;
-  background: rgba(17, 24, 39, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
+  align-items: center;
+  animation: slide-in 220ms ease both;
+  backdrop-filter: blur(18px);
+  background: rgba(17, 24, 39, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
   color: #fff;
-  padding: 13px 15px;
+  display: flex;
+  gap: 5px;
+  justify-self: center;
+  max-width: calc(100% - 20px);
+  min-height: 30px;
+  overflow: hidden;
+  padding: 6px 10px;
+  width: fit-content;
 }
 
 .toast strong {
-  display: block;
-  margin-bottom: 3px;
+  display: inline;
+  font-size: 0.76rem;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.toast span {
+  font-size: 0.72rem;
+  line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @keyframes slide-in {
@@ -746,9 +902,4 @@ body.theme-neon {
     width: 100%;
   }
 
-  .toast-stack {
-    left: 14px;
-    right: 14px;
-    top: 14px;
-  }
 }

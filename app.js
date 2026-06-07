@@ -7,6 +7,8 @@ const rarityClass = {
   "Ultra-Limitierte Edition": "ultra",
 };
 
+const maxPassLevel = 50;
+
 const themeCatalog = [
   {
     id: "minimal",
@@ -63,6 +65,12 @@ const initialStocks = [
   { id: "alpine", symbol: "AB", name: "Alpine Bank", sector: "Finanzen", price: 76, prev: 76, owned: 0, volatility: 0.047 },
   { id: "solaris", symbol: "SE", name: "Solaris Energy", sector: "Energie", price: 44, prev: 44, owned: 0, volatility: 0.095 },
   { id: "primehomes", symbol: "PH", name: "PrimeHomes RE", sector: "Immobilien", price: 132, prev: 132, owned: 0, volatility: 0.054 },
+  { id: "medica", symbol: "MC", name: "Medica Labs", sector: "Gesundheit", price: 58, prev: 58, owned: 0, volatility: 0.063 },
+  { id: "orbit", symbol: "OX", name: "Orbit Express", sector: "Logistik", price: 34, prev: 34, owned: 0, volatility: 0.082 },
+  { id: "cloudpeak", symbol: "CP", name: "CloudPeak Systems", sector: "Software", price: 149, prev: 149, owned: 0, volatility: 0.068 },
+  { id: "harbor", symbol: "HH", name: "Harbor Hospitality", sector: "Konsum", price: 27, prev: 27, owned: 0, volatility: 0.052 },
+  { id: "bioforge", symbol: "BF", name: "BioForge SE", sector: "Biotech", price: 88, prev: 88, owned: 0, volatility: 0.11 },
+  { id: "terra", symbol: "TG", name: "TerraGrid Utilities", sector: "Versorger", price: 63, prev: 63, owned: 0, volatility: 0.032 },
 ];
 
 const initialEtfs = [
@@ -124,26 +132,52 @@ const events = [
   { name: "Crash Watch", detail: "hoehere Volatilitaet", reward: "guenstige Einstiege" },
 ];
 
-const leaderboard = [
-  ["A. Keller", 12840000],
-  ["Mira Capital", 9140000],
-  ["NordClan", 6775000],
-  ["You", 0],
+const initialOpponents = [
+  {
+    id: "akeller",
+    name: "A. Keller",
+    style: "Momentum",
+    cash: 1410,
+    holdings: { nordtech: 3, cloudpeak: 2, solaris: 4 },
+    lastMove: "wartet auf Runde 2",
+  },
+  {
+    id: "mira",
+    name: "Mira Capital",
+    style: "Dividende",
+    cash: 1680,
+    holdings: { alpine: 4, terra: 5, primehomes: 2 },
+    lastMove: "haelt defensive Werte",
+  },
+  {
+    id: "nordclan",
+    name: "NordClan",
+    style: "Riskant",
+    cash: 1120,
+    holdings: { bioforge: 3, orbit: 5, harbor: 4 },
+    lastMove: "sucht Volatilitaet",
+  },
 ];
 
 const defaultState = {
   cash: 1250,
   gems: 24,
   xp: 0,
+  round: 1,
+  rentCollectedRound: 0,
+  roundLog: "Runde 1: Markt eroeffnet.",
   passLevel: 1,
   activeTab: "stocks",
   activeTheme: "minimal",
   premium: false,
   pushEnabled: false,
+  meetupConnected: false,
+  meetupEventsSynced: 0,
   selectedShopCategory: "Boost-Items",
   stocks: initialStocks,
   etfs: initialEtfs,
   properties: initialProperties,
+  opponents: initialOpponents,
   rules: [
     { id: "rule-1", assetId: "nordtech", condition: "gain", value: 6, action: "sell", active: true, anchorPrice: 118 },
     { id: "rule-2", assetId: "solaris", condition: "loss", value: 9, action: "buy", active: true, anchorPrice: 44 },
@@ -164,6 +198,7 @@ function loadState() {
       stocks: mergeAssets(initialStocks, stored.stocks),
       etfs: mergeAssets(initialEtfs, stored.etfs),
       properties: mergeAssets(initialProperties, stored.properties),
+      opponents: mergeOpponents(initialOpponents, stored.opponents),
     };
   } catch {
     return structuredClone(defaultState);
@@ -172,6 +207,17 @@ function loadState() {
 
 function mergeAssets(defaults, stored = []) {
   return defaults.map((asset) => ({ ...asset, ...(stored.find((item) => item.id === asset.id) || {}) }));
+}
+
+function mergeOpponents(defaults, stored = []) {
+  return defaults.map((opponent) => {
+    const saved = stored.find((item) => item.id === opponent.id) || {};
+    return {
+      ...opponent,
+      ...saved,
+      holdings: { ...opponent.holdings, ...(saved.holdings || {}) },
+    };
+  });
 }
 
 function saveState() {
@@ -207,17 +253,39 @@ function netWorth() {
   return state.cash + securityValue + propertyValue;
 }
 
+function opponentWorth(opponent) {
+  return (
+    opponent.cash +
+    state.stocks.reduce((total, asset) => {
+      return total + (opponent.holdings[asset.id] || 0) * asset.price;
+    }, 0)
+  );
+}
+
+function xpNeededForLevel(level) {
+  return 180 + (level - 1) * 20;
+}
+
+function passRewardForLevel(level) {
+  if (level > maxPassLevel) return { gems: 0, label: "Alles freigeschaltet" };
+  if (level % 10 === 0) return { gems: 6, label: "6 Diamanten" };
+  if (level % 5 === 0) return { gems: 4, label: "4 Diamanten" };
+  if (level % 3 === 0) return { gems: 2, label: "2 Diamanten" };
+  return { gems: 1, label: "1 Diamant" };
+}
+
 function addXp(amount) {
   const themeBonus = state.activeTheme === "minimal" ? 1 : 1.01;
   const premiumBonus = state.premium ? 1.04 : 1;
   state.xp += Math.round(amount * themeBonus * premiumBonus);
-  while (state.xp >= 100) {
-    state.xp -= 100;
-    state.passLevel = Math.min(50, state.passLevel + 1);
-    const reward = state.passLevel % 5 === 0 ? 4 : 1;
-    state.gems += reward;
-    notify("Battle Pass Level " + state.passLevel, "Belohnung erhalten: " + reward + " Diamanten.");
+  while (state.passLevel < maxPassLevel && state.xp >= xpNeededForLevel(state.passLevel)) {
+    state.xp -= xpNeededForLevel(state.passLevel);
+    state.passLevel += 1;
+    const reward = passRewardForLevel(state.passLevel);
+    state.gems += reward.gems;
+    notify("Battle Pass Level " + state.passLevel, "Belohnung erhalten: " + reward.label + ".");
   }
+  if (state.passLevel >= maxPassLevel) state.xp = 0;
 }
 
 function notify(title, message, important = false) {
@@ -227,8 +295,10 @@ function notify(title, message, important = false) {
   const toast = document.createElement("div");
   toast.className = "toast";
   toast.innerHTML = `<strong>${title}</strong><span>${message}</span>`;
-  document.getElementById("toast-stack").appendChild(toast);
-  setTimeout(() => toast.remove(), 4200);
+  const toastStack = document.getElementById("toast-stack");
+  toastStack.prepend(toast);
+  while (toastStack.children.length > 3) toastStack.lastElementChild.remove();
+  setTimeout(() => toast.remove(), 3200);
 
   if (state.pushEnabled && important && "Notification" in window && Notification.permission === "granted") {
     new Notification(title, { body: message });
@@ -240,7 +310,24 @@ function updateWallet() {
   document.getElementById("gem-balance").textContent = gems(state.gems);
   document.getElementById("net-worth").textContent = euro(netWorth());
   document.getElementById("pass-level").textContent = "Level " + state.passLevel + " / 50";
-  document.getElementById("xp-progress").style.width = `${state.xp}%`;
+  const xpNeeded = xpNeededForLevel(state.passLevel);
+  const nextReward = passRewardForLevel(state.passLevel + 1);
+  document.getElementById("pass-xp").textContent =
+    state.passLevel >= maxPassLevel ? "Max Level" : `${state.xp} / ${xpNeeded} XP`;
+  document.getElementById("pass-next-reward").textContent =
+    state.passLevel >= maxPassLevel ? "Alle Belohnungen" : "Level " + (state.passLevel + 1) + ": " + nextReward.label;
+  document.getElementById("xp-progress").style.width =
+    state.passLevel >= maxPassLevel ? "100%" : `${Math.min(100, (state.xp / xpNeeded) * 100)}%`;
+}
+
+function renderRoundHud() {
+  const rentCollected = state.rentCollectedRound === state.round;
+  const rentButton = document.getElementById("collect-rent");
+  document.getElementById("round-number").textContent = "Runde " + state.round;
+  document.getElementById("rent-status").textContent = rentCollected ? "Eingezogen" : "Offen";
+  document.getElementById("round-log").textContent = state.roundLog;
+  rentButton.disabled = rentCollected;
+  rentButton.textContent = rentCollected ? "Miete eingezogen" : "Miete einziehen";
 }
 
 function renderStocks() {
@@ -439,12 +526,58 @@ function renderThemes() {
 }
 
 function renderLeaderboard() {
-  const rows = leaderboard.map((row) => [...row]);
-  rows[3][1] = Math.round(netWorth());
+  const rows = state.opponents.map((opponent) => [opponent.name, opponentWorth(opponent), opponent.lastMove]);
+  rows.push(["You", netWorth(), "Aktives Portfolio"]);
   rows.sort((a, b) => b[1] - a[1]);
   document.getElementById("leaderboard").innerHTML = rows
-    .map((row, index) => `<li><strong>#${index + 1} ${row[0]}</strong><span>${euro(row[1])}</span></li>`)
+    .map(
+      (row, index) => `
+        <li>
+          <div>
+            <strong>#${index + 1} ${row[0]}</strong>
+            <small>${row[2]}</small>
+          </div>
+          <span>${euro(row[1])}</span>
+        </li>
+      `,
+    )
     .join("");
+}
+
+function renderOpponents() {
+  document.getElementById("opponent-strip").innerHTML = state.opponents
+    .map(
+      (opponent) => `
+        <article class="opponent-card">
+          <div>
+            <strong>${opponent.name}</strong>
+            <small>${opponent.style} · ${opponent.lastMove}</small>
+          </div>
+          <span>${euro(opponentWorth(opponent))}</span>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderMeetupConnection() {
+  const card = document.getElementById("meetup-card");
+  const status = state.meetupConnected ? "Verbunden" : "Nicht verbunden";
+  const detail = state.meetupConnected
+    ? `${state.meetupEventsSynced} Meetup-Events fuer Boni und Clan-Aktivitaet synchronisiert.`
+    : "Verbinde Meetup, um lokale Investor-Events als kleine In-Game-Boni zu synchronisieren.";
+  const buttonLabel = state.meetupConnected ? "Meetup syncen" : "Connect with Meetup";
+  card.innerHTML = `
+    <div class="meetup-mark">M</div>
+    <div class="meetup-copy">
+      <div>
+        <strong>Meetup</strong>
+        <span class="meetup-status ${state.meetupConnected ? "connected" : ""}">${status}</span>
+      </div>
+      <p>${detail}</p>
+    </div>
+    <button data-action="connect-meetup">${buttonLabel}</button>
+  `;
 }
 
 function applyTheme() {
@@ -469,6 +602,7 @@ function renderActiveTab() {
 
 function render() {
   updateWallet();
+  renderRoundHud();
   renderActiveTab();
   renderStocks();
   renderEtfs();
@@ -478,6 +612,8 @@ function render() {
   renderShop();
   renderThemes();
   renderLeaderboard();
+  renderOpponents();
+  renderMeetupConnection();
   applyTheme();
   document.getElementById("premium-toggle").checked = state.premium;
   document.getElementById("push-toggle").checked = state.pushEnabled;
@@ -533,8 +669,54 @@ function moveMarket(forceCrash = false) {
     }
   });
   runAutoTrader();
-  addXp(1);
+}
+
+function advanceRound(forceCrash = false) {
+  state.round += 1;
+  moveMarket(forceCrash);
+  simulateOpponents(forceCrash);
+  addXp(forceCrash ? 4 : 2);
+  state.roundLog = forceCrash
+    ? `Runde ${state.round}: Crash-Runde erschuettert den Markt.`
+    : `Runde ${state.round}: Markt, Gegner und Auto-Trader wurden simuliert.`;
+  notify(forceCrash ? "Crash-Runde" : "Neue Runde", state.roundLog, forceCrash);
   render();
+}
+
+function simulateOpponents(forceCrash = false) {
+  state.opponents.forEach((opponent) => {
+    opponent.cash += 70 + Math.round(Math.random() * 90);
+    const rankedStocks = [...state.stocks].sort((a, b) => {
+      const changeA = (a.price - a.prev) / a.prev;
+      const changeB = (b.price - b.prev) / b.prev;
+      if (opponent.style === "Momentum") return changeB - changeA;
+      if (opponent.style === "Dividende") return a.volatility - b.volatility;
+      return b.volatility - a.volatility;
+    });
+    const target = rankedStocks[Math.floor(Math.random() * Math.min(4, rankedStocks.length))];
+    if (!target) return;
+
+    const owned = opponent.holdings[target.id] || 0;
+    const shouldSell = owned > 0 && (forceCrash || Math.random() < 0.34);
+    if (shouldSell) {
+      const quantity = Math.max(1, Math.ceil(owned * 0.45));
+      opponent.holdings[target.id] = owned - quantity;
+      opponent.cash += quantity * target.price;
+      opponent.lastMove = `${quantity}x ${target.symbol} verkauft`;
+      return;
+    }
+
+    const maxQuantity = Math.min(3, Math.floor(opponent.cash / target.price));
+    if (maxQuantity <= 0) {
+      opponent.lastMove = "sammelt Cash";
+      return;
+    }
+
+    const quantity = 1 + Math.floor(Math.random() * maxQuantity);
+    opponent.cash -= quantity * target.price;
+    opponent.holdings[target.id] = owned + quantity;
+    opponent.lastMove = `${quantity}x ${target.symbol} gekauft`;
+  });
 }
 
 function runAutoTrader() {
@@ -639,11 +821,17 @@ function paintProperty(id) {
 }
 
 function collectRent() {
+  if (state.rentCollectedRound === state.round) {
+    notify("Miete bereits eingezogen", "Starte die naechste Runde, um wieder Miete zu erhalten.");
+    render();
+    return;
+  }
   const rent = state.properties.reduce((total, property) => {
     if (!property.owned) return total;
     return total + Math.round(property.rent * property.level * paintBonus(property.paintName));
   }, 0);
   state.cash += rent;
+  state.rentCollectedRound = state.round;
   addXp(12);
   notify("Miete eingegangen", `${euro(rent)} wurden deinem Konto gutgeschrieben.`, true);
   render();
@@ -708,6 +896,25 @@ function onlineAction(action) {
   render();
 }
 
+function connectMeetup() {
+  if (!state.meetupConnected) {
+    state.meetupConnected = true;
+    state.meetupEventsSynced = 3;
+    state.gems += 3;
+    state.cash += 180;
+    addXp(18);
+    notify("Meetup verbunden", "3 lokale Events synchronisiert: 180 EUR und 3 Diamanten erhalten.", true);
+    render();
+    return;
+  }
+
+  state.meetupEventsSynced += 1;
+  state.cash += 60;
+  addXp(6);
+  notify("Meetup aktualisiert", "Ein neues Event wurde mit deinem Clan-Feed synchronisiert.");
+  render();
+}
+
 document.querySelector(".bottom-nav").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tab]");
   if (!button) return;
@@ -716,10 +923,13 @@ document.querySelector(".bottom-nav").addEventListener("click", (event) => {
 });
 
 document.body.addEventListener("click", (event) => {
-  const target = event.target.closest("[data-action], #simulate-crash, #collect-rent, #claim-daily, #add-rule, #send-cash, #trade-item, #risk-steal, #join-clan");
+  const target = event.target.closest(
+    "[data-action], #next-round, #simulate-crash, #collect-rent, #claim-daily, #add-rule, #send-cash, #trade-item, #risk-steal, #join-clan",
+  );
   if (!target) return;
 
-  if (target.id === "simulate-crash") return moveMarket(true);
+  if (target.id === "next-round") return advanceRound(false);
+  if (target.id === "simulate-crash") return advanceRound(true);
   if (target.id === "collect-rent") return collectRent();
   if (target.id === "claim-daily") return claimDaily();
   if (target.id === "add-rule") return addRule();
@@ -731,6 +941,7 @@ document.body.addEventListener("click", (event) => {
   if (action === "buy-property") buyOrUpgradeProperty(id, false);
   if (action === "upgrade-property") buyOrUpgradeProperty(id, true);
   if (action === "paint-property") paintProperty(id);
+  if (action === "connect-meetup") connectMeetup();
   if (action === "shop-category") {
     state.selectedShopCategory = category;
     render();
@@ -767,5 +978,3 @@ document.body.addEventListener("change", async (event) => {
 });
 
 render();
-setInterval(() => moveMarket(false), 5000);
-setInterval(() => renderShop(), 20000);

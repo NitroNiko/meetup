@@ -23,13 +23,15 @@ http://localhost:8080
 
 - Fuenf Mobile-Tabs: Aktien, Immobilien, ETFs, Shop und Profil.
 - Zwei Waehrungen: Euro und Diamanten mit minimalistischen Wallet-Icons.
-- Aktien und ETFs mit fortlaufenden Kursschwankungen, starken Bewegungen und
-  Crash-Simulation.
+- Erweitertes Aktienuniversum, ETFs und rundenbasierte Marktbewegungen mit
+  Crash-Runden.
 - Auto-Trader mit ein- und ausschaltbaren Regeln fuer Prozent- und
   Preisbedingungen.
 - Premium-Modus mit hoeherem Limit fuer aktive Auto-Trader-Regeln.
-- Optionale Browser-Push-Benachrichtigungen plus In-App-Toasts.
-- Immobilien kaufen, vermieten, upgraden und mit Farben versehen.
+- Optionale Browser-Push-Benachrichtigungen plus kompakte In-App-Toasts im
+  Handybildschirm.
+- Immobilien kaufen, vermieten, upgraden und mit Farben versehen; Miete kann
+  pro Runde nur einmal eingezogen werden.
 - Seltenheits-System: Standard, Erweitert, Exklusiv, Elite, Limitierte Edition
   und Ultra-Limitierte Edition.
 - Shop-Kategorien fuer Boosts, Schutz, Kosmetik, limitierte Items,
@@ -37,8 +39,9 @@ http://localhost:8080
 - Dynamische Shop-Preise fuer Euro-, Diamant- und Echtgeld-Angebote.
 - Minimalistischer Avatar mit kosmetischen Boni.
 - Design-Editionen wie Midnight, Ice, Carbon, Pinkwave, Minimal und Neon.
-- Battle Pass mit 50 Leveln, XP-Fortschritt und fairen Diamant-Belohnungen.
+- Schwererer Battle Pass mit 50 Leveln, steigenden XP-Anforderungen,
+  XP-Fortschritt und sichtbarer naechster Diamant-Belohnung.
 - Online-System-Prototyp fuer Geld senden, Item-Tausch, riskante Coups,
-  Clan-Boni und Rangliste.
+  simulierte Gegner, Clan-Boni, Meetup-Verbindung und Rangliste.
 
 Der Spielstand wird lokal im Browser gespeichert.
