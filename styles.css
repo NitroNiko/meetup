@@ -159,7 +159,7 @@ button {
   gap: 14px;
   grid-template-columns: 1fr 1fr;
   margin-bottom: 18px;
-  margin-top: 38px;
+  margin-top: 70px;
   padding: 18px;
 }
 
@@ -794,7 +794,7 @@ button:disabled {
   pointer-events: none;
   position: absolute;
   right: 16px;
-  top: 78px;
+  top: 104px;
   z-index: 12;
 }
 
