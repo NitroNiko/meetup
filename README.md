@@ -28,7 +28,8 @@ http://localhost:8080
 - Auto-Trader mit ein- und ausschaltbaren Regeln fuer Prozent- und
   Preisbedingungen.
 - Premium-Modus mit hoeherem Limit fuer aktive Auto-Trader-Regeln.
-- Optionale Browser-Push-Benachrichtigungen plus In-App-Toasts.
+- Optionale Browser-Push-Benachrichtigungen plus kompakte In-App-Toasts im
+  Handybildschirm.
 - Immobilien kaufen, vermieten, upgraden und mit Farben versehen; Miete kann
   pro Runde nur einmal eingezogen werden.
 - Seltenheits-System: Standard, Erweitert, Exklusiv, Elite, Limitierte Edition

@@ -786,28 +786,41 @@ button:disabled {
 }
 
 .toast-stack {
+  align-items: center;
   display: grid;
-  gap: 10px;
-  max-width: 360px;
-  position: fixed;
-  right: 18px;
-  top: 18px;
-  z-index: 10;
+  gap: 6px;
+  left: 16px;
+  pointer-events: none;
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  z-index: 12;
 }
 
 .toast {
-  animation: slide-in 260ms ease both;
-  background: rgba(17, 24, 39, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
+  animation: slide-in 220ms ease both;
+  backdrop-filter: blur(18px);
+  background: rgba(17, 24, 39, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
   color: #fff;
-  padding: 13px 15px;
+  justify-self: center;
+  max-width: min(100%, 330px);
+  padding: 8px 12px;
+  width: fit-content;
 }
 
 .toast strong {
-  display: block;
-  margin-bottom: 3px;
+  display: inline;
+  font-size: 0.76rem;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
+.toast span {
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 
 @keyframes slide-in {
@@ -879,9 +892,4 @@ body.theme-neon {
     width: 100%;
   }
 
-  .toast-stack {
-    left: 14px;
-    right: 14px;
-    top: 14px;
-  }
 }

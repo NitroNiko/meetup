@@ -295,8 +295,10 @@ function notify(title, message, important = false) {
   const toast = document.createElement("div");
   toast.className = "toast";
   toast.innerHTML = `<strong>${title}</strong><span>${message}</span>`;
-  document.getElementById("toast-stack").appendChild(toast);
-  setTimeout(() => toast.remove(), 4200);
+  const toastStack = document.getElementById("toast-stack");
+  toastStack.prepend(toast);
+  while (toastStack.children.length > 3) toastStack.lastElementChild.remove();
+  setTimeout(() => toast.remove(), 3200);
 
   if (state.pushEnabled && important && "Notification" in window && Notification.permission === "granted") {
     new Notification(title, { body: message });
