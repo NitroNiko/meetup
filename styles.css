@@ -242,13 +242,19 @@ button {
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.48;
+  opacity: 1;
 }
 
 .ghost-button {
   background: rgba(36, 52, 71, 0.08);
   box-shadow: none;
   color: var(--accent);
+}
+
+.ghost-button:disabled {
+  background: rgba(36, 52, 71, 0.08);
+  border: 1px solid var(--line);
+  color: var(--muted);
 }
 
 .header-actions {
