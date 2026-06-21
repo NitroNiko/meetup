@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 MemoryCategory = Literal["preferences", "tasks", "projects", "facts", "calendar", "files"]
@@ -75,9 +75,11 @@ class FileSummaryRequest(BaseModel):
 
 
 class WebRequestPayload(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     url: HttpUrl
     method: Literal["GET", "POST"] = "GET"
-    json: dict[str, Any] | None = None
+    json_body: dict[str, Any] | None = Field(default=None, alias="json")
 
 
 class SpeechSynthesisRequest(BaseModel):

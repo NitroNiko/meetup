@@ -72,7 +72,7 @@ class ToolRegistry:
         request = WebRequestPayload.model_validate(payload)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.request(request.method, str(request.url), json=request.json)
+                response = await client.request(request.method, str(request.url), json=request.json_body)
             preview = response.text[:900]
             return ToolResult(
                 tool="web.request",

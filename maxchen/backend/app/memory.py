@@ -78,7 +78,9 @@ class MemoryStore:
             cleaned = re.sub(r"^(maxchen|mäxchen)[, ]*", "", normalized, flags=re.IGNORECASE)
             updates.append(self.add("facts", cleaned, {"source": "auto_extraction"}))
 
-        if any(marker in lower for marker in ["aufgabe", "todo", "erledigen", "task"]):
+        task_intent = any(marker in lower for marker in ["todo", "erledigen", "task", "aufgabe:", "neue aufgabe", "erstelle aufgabe"])
+        read_intent = any(marker in lower for marker in ["liste", "zeige", "was steht", "welche"])
+        if task_intent and not read_intent:
             updates.append(self.add("tasks", normalized, {"status": "open", "source": "auto_extraction"}))
 
         if "projekt" in lower:
