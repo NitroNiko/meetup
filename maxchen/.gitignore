@@ -1,0 +1,5 @@
+backend/.venv/
+backend/app/storage/*.tmp
+frontend/dist/
+frontend/node_modules/
+

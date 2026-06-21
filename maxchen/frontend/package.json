@@ -1,0 +1,20 @@
+{
+  "name": "maxchen-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc && vite build",
+    "preview": "vite --host 0.0.0.0 --preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {}
+}
+
