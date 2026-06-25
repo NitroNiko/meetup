@@ -18,6 +18,7 @@ const TYPE_LABELS = {
   input: "Eingabe-Frage",
   choice: "Multiple-Choice-Frage",
 };
+const DIFFICULTIES = ["leicht", "mittel", "schwer"];
 
 const rawQuestions = [
   ["leicht", "Können Viren nur in lebenden Zellen überleben?", "ja"],
@@ -149,12 +150,48 @@ function loadQuestionBank() {
   try {
     const stored = JSON.parse(localStorage.getItem(QUESTION_STORAGE_KEY));
     return {
-      edits: stored?.edits && typeof stored.edits === "object" ? stored.edits : {},
-      custom: Array.isArray(stored?.custom) ? stored.custom : [],
+      edits: sanitizeQuestionEdits(stored?.edits),
+      custom: Array.isArray(stored?.custom) ? stored.custom.map(sanitizeCustomQuestion).filter(Boolean) : [],
     };
   } catch {
     return { edits: {}, custom: [] };
   }
+}
+
+function isRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function textValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function sanitizeQuestionFields(question) {
+  if (!isRecord(question)) return null;
+  const sanitized = {};
+  const prompt = textValue(question.prompt);
+  const answer = textValue(question.answer).toLowerCase();
+  if (prompt) sanitized.prompt = prompt;
+  if (answer) sanitized.answer = answer;
+  if (DIFFICULTIES.includes(question.difficulty)) sanitized.difficulty = question.difficulty;
+  if (Object.prototype.hasOwnProperty.call(TOPIC_LABELS, question.topic)) sanitized.topic = question.topic;
+  return sanitized;
+}
+
+function sanitizeQuestionEdits(edits) {
+  if (!isRecord(edits)) return {};
+  return Object.entries(edits).reduce((validEdits, [id, edit]) => {
+    const sanitized = sanitizeQuestionFields(edit);
+    if (/^q-\d+$/.test(id) && sanitized && Object.keys(sanitized).length) validEdits[id] = sanitized;
+    return validEdits;
+  }, {});
+}
+
+function sanitizeCustomQuestion(question) {
+  const sanitized = sanitizeQuestionFields(question);
+  const id = isRecord(question) ? textValue(question.id) : "";
+  if (!id || !sanitized?.prompt || !sanitized.answer || !sanitized.difficulty || !sanitized.topic) return null;
+  return { id, ...sanitized };
 }
 
 function saveQuestionBank() {
@@ -686,7 +723,8 @@ function renderWave(svg) {
     return [x, y];
   });
   const path = points.map(([x, y], index) => `${index ? "L" : "M"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
-  const area = `${path} L ${points.at(-1)[0].toFixed(1)} 105 L ${points[0][0].toFixed(1)} 105 Z`;
+  const lastPoint = points[points.length - 1];
+  const area = `${path} L ${lastPoint[0].toFixed(1)} 105 L ${points[0][0].toFixed(1)} 105 Z`;
   svg.innerHTML = `
     <path d="${area}" fill="rgba(37, 111, 104, 0.12)"></path>
     <path d="${path}" fill="none" stroke="#256f68" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
