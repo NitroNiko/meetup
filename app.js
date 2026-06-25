@@ -1,6 +1,8 @@
 const STORAGE_KEY = "immunoQuizProgress";
+const QUESTION_STORAGE_KEY = "immunoQuizQuestionBank";
+const ADMIN_CODE = "1234";
 const TOPIC_LABELS = {
-  antikoerper: "Antikoerper",
+  antikoerper: "Antikörper",
   bakterien: "Bakterien",
   infektionswege: "Infektionswege",
   krankheitsverlauf: "Krankheitsverlauf",
@@ -120,19 +122,8 @@ const rawQuestions = [
   ["schwer", "Können Viren Wirtszellen umprogrammieren?", "ja"],
 ];
 
-const questions = rawQuestions.map(([difficulty, prompt, answer], index) => {
-  const topic = inferTopic(prompt, answer);
-  return {
-    id: "q-" + index,
-    difficulty,
-    prompt,
-    answer,
-    topic,
-    baseType: answer === "ja" || answer === "nein" ? "yesno" : "input",
-    explanation: buildExplanation(prompt, answer, topic),
-  };
-});
-
+let questionBank = loadQuestionBank();
+let questions = buildQuestionSet();
 let progress = loadProgress();
 let round = null;
 let timerId = null;
@@ -154,6 +145,50 @@ function loadProgress() {
   }
 }
 
+function loadQuestionBank() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(QUESTION_STORAGE_KEY));
+    return {
+      edits: stored?.edits && typeof stored.edits === "object" ? stored.edits : {},
+      custom: Array.isArray(stored?.custom) ? stored.custom : [],
+    };
+  } catch {
+    return { edits: {}, custom: [] };
+  }
+}
+
+function saveQuestionBank() {
+  localStorage.setItem(QUESTION_STORAGE_KEY, JSON.stringify(questionBank));
+}
+
+function buildQuestionSet() {
+  const base = rawQuestions.map(([difficulty, prompt, answer], index) => {
+    const id = "q-" + index;
+    return createQuestion({ difficulty, prompt, answer, ...questionBank.edits[id] }, id, "Basisfrage");
+  });
+  const custom = questionBank.custom.map((question) => createQuestion(question, question.id, "Eigene Frage"));
+  return [...base, ...custom];
+}
+
+function createQuestion(question, id, source) {
+  const topic = question.topic || inferTopic(question.prompt, question.answer);
+  return {
+    id,
+    source,
+    difficulty: question.difficulty,
+    prompt: question.prompt,
+    answer: question.answer,
+    topic,
+    baseType: normalize(question.answer) === "ja" || normalize(question.answer) === "nein" ? "yesno" : "input",
+    explanation: buildExplanation(question.prompt, question.answer, topic),
+  };
+}
+
+function refreshQuestionSet() {
+  questions = buildQuestionSet();
+  renderAdminQuestions();
+}
+
 function saveProgress() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
@@ -161,17 +196,17 @@ function saveProgress() {
 function inferTopic(prompt, answer) {
   const text = normalize(prompt + " " + answer);
   if (/bakter|antibiotika|zellwand|resistenz|sporen|giftstoffe|toxine|biofilme|plasmide|horizontal|hitze/.test(text)) return "bakterien";
-  if (/ansteck|uebertragung|niesen|kuessen|wasser|lebensmittel|blutkontakt|trinkflaschen|haustiere|luft|vektor|tiere/.test(text)) return "infektionswege";
-  if (/fieber|grippe|aids|inkubationszeit|symptom|krankheit|phase|genesung|abkling|latent|inaktiv|stress|pyrogen|oberflaeche|mutieren|wirtszelle|dna|rna/.test(text)) return "krankheitsverlauf";
+  if (/ansteck|ubertragung|niesen|kussen|wasser|lebensmittel|blutkontakt|trinkflaschen|haustiere|luft|vektor|tiere/.test(text)) return "infektionswege";
+  if (/fieber|grippe|aids|inkubationszeit|symptom|krankheit|phase|genesung|abkling|latent|inaktiv|stress|pyrogen|oberflache|mutieren|wirtszelle|dna|rna/.test(text)) return "krankheitsverlauf";
   return "antikoerper";
 }
 
 function buildExplanation(prompt, answer, topic) {
   const topicText = {
-    antikoerper: "Die Immunabwehr erkennt Erreger an typischen Merkmalen und reagiert mit spezialisierten Zellen oder Antikoerpern.",
-    bakterien: "Bakterien sind eigenstaendige Zellen; sie koennen sich teilen, Strukturen bilden und je nach Art nuetzlich oder schaedlich sein.",
-    infektionswege: "Infektionen entstehen, wenn Erreger ueber Kontakt, Luft, Wasser, Lebensmittel, Tiere oder Koerperfluessigkeiten weitergegeben werden.",
-    krankheitsverlauf: "Beim Krankheitsverlauf vermehren sich Erreger, der Koerper reagiert und Symptome klingen nach erfolgreicher Abwehr wieder ab.",
+    antikoerper: "Die Immunabwehr erkennt Erreger an typischen Merkmalen und reagiert mit spezialisierten Zellen oder Antikörpern.",
+    bakterien: "Bakterien sind eigenständige Zellen; sie können sich teilen, Strukturen bilden und je nach Art nützlich oder schädlich sein.",
+    infektionswege: "Infektionen entstehen, wenn Erreger über Kontakt, Luft, Wasser, Lebensmittel, Tiere oder Körperflüssigkeiten weitergegeben werden.",
+    krankheitsverlauf: "Beim Krankheitsverlauf vermehren sich Erreger, der Körper reagiert und Symptome klingen nach erfolgreicher Abwehr wieder ab.",
   }[topic];
 
   if (answer === "ja") return "Ja. " + topicText;
@@ -227,7 +262,7 @@ function startRound(event) {
   };
   const pool = getQuestionPool(settings);
   if (!pool.length) {
-    notify("Keine passenden Fragen", "Waehle gemischte Themen oder einen anderen Fragetyp.");
+    notify("Keine passenden Fragen", "Wähle gemischte Themen oder einen anderen Fragetyp.");
     return;
   }
 
@@ -335,7 +370,7 @@ function renderAnswerForm(question) {
 
   $("#answer-form").innerHTML = `
     <input class="text-answer" id="text-answer" autocomplete="off" placeholder="Antwort eingeben..." />
-    <button class="primary-button" type="submit">Antwort pruefen</button>
+    <button class="primary-button" type="submit">Antwort prüfen</button>
   `;
   $("#text-answer").focus();
 }
@@ -349,7 +384,14 @@ function buildChoices(question) {
 }
 
 function escapeAttribute(value) {
-  return value.replace(/"/g, "&quot;");
+  return escapeHtml(value).replace(/"/g, "&quot;");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function startTimer(seconds) {
@@ -481,7 +523,7 @@ function renderResults(summary, bestFlags) {
   $("#stats-grid").innerHTML = [
     ["Richtig", summary.correct],
     ["Falsch", summary.wrong],
-    ["Hoechste Streak", summary.bestStreak],
+    ["Höchste Streak", summary.bestStreak],
     ["Ø Antwortzeit", formatSeconds(summary.averageTime)],
     ["Gesamtpunkte", summary.score],
     ["Bonuspunkte", summary.bonusPoints],
@@ -523,6 +565,112 @@ function renderProgress() {
     .map(([label, value]) => `<article class="best-card"><span class="muted">${label}</span><strong>${value}</strong></article>`)
     .join("");
   renderWave($("#history-wave"));
+}
+
+function renderAdminQuestions() {
+  const list = $("#admin-question-list");
+  if (!list) return;
+  $("#question-count-label").textContent = `${questions.length} Fragen`;
+  list.innerHTML = questions
+    .map(
+      (question) => `
+        <article class="admin-question" data-question-id="${question.id}">
+          <div class="admin-question-actions">
+            <span class="source-chip">${question.source}</span>
+            <button class="quiet-button" type="button" data-action="save-question" data-id="${question.id}">Speichern</button>
+          </div>
+          <label>
+            Frage
+            <textarea data-field="prompt">${escapeHtml(question.prompt)}</textarea>
+          </label>
+          <label>
+            Antwort
+            <input data-field="answer" value="${escapeAttribute(question.answer)}" />
+          </label>
+          <div class="admin-question-meta">
+            <label>
+              Schwierigkeit
+              <select data-field="difficulty">${difficultyOptions(question.difficulty)}</select>
+            </label>
+            <label>
+              Thema
+              <select data-field="topic">${topicOptions(question.topic)}</select>
+            </label>
+            <label>
+              Fragetyp
+              <input value="${TYPE_LABELS[question.baseType]}" disabled />
+            </label>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function difficultyOptions(active) {
+  return ["leicht", "mittel", "schwer"].map((value) => `<option value="${value}" ${value === active ? "selected" : ""}>${value}</option>`).join("");
+}
+
+function topicOptions(active) {
+  return Object.entries(TOPIC_LABELS)
+    .map(([value, label]) => `<option value="${value}" ${value === active ? "selected" : ""}>${label}</option>`)
+    .join("");
+}
+
+function unlockAdmin(event) {
+  event.preventDefault();
+  if ($("#admin-code").value !== ADMIN_CODE) {
+    notify("Code nicht korrekt", "Bitte prüfe den vierstelligen Code.");
+    return;
+  }
+  $("#admin-panel").classList.remove("hidden");
+  $("#admin-code").value = "";
+  renderAdminQuestions();
+  notify("Redaktion geöffnet", "Du kannst Fragen jetzt bearbeiten oder neu schreiben.");
+}
+
+function saveAdminQuestion(questionId) {
+  const card = document.querySelector(`[data-question-id="${questionId}"]`);
+  if (!card) return;
+  const updated = {
+    prompt: card.querySelector('[data-field="prompt"]').value.trim(),
+    answer: card.querySelector('[data-field="answer"]').value.trim().toLowerCase(),
+    difficulty: card.querySelector('[data-field="difficulty"]').value,
+    topic: card.querySelector('[data-field="topic"]').value,
+  };
+  if (!updated.prompt || !updated.answer) {
+    notify("Frage unvollständig", "Frage und Antwort müssen ausgefüllt sein.");
+    return;
+  }
+  if (questionId.startsWith("q-")) {
+    questionBank.edits[questionId] = updated;
+  } else {
+    questionBank.custom = questionBank.custom.map((question) => (question.id === questionId ? { ...question, ...updated } : question));
+  }
+  saveQuestionBank();
+  refreshQuestionSet();
+  notify("Frage gespeichert", "Die Änderung ist lokal in der App verfügbar.");
+}
+
+function addAdminQuestion(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const question = {
+    id: "custom-" + Date.now(),
+    prompt: String(data.get("prompt")).trim(),
+    answer: String(data.get("answer")).trim().toLowerCase(),
+    difficulty: data.get("difficulty"),
+    topic: data.get("topic"),
+  };
+  if (!question.prompt || !question.answer) {
+    notify("Frage unvollständig", "Frage und Antwort müssen ausgefüllt sein.");
+    return;
+  }
+  questionBank.custom.unshift(question);
+  saveQuestionBank();
+  refreshQuestionSet();
+  event.target.reset();
+  notify("Neue Frage gespeichert", "Sie erscheint sofort im Fragenpool.");
 }
 
 function renderWave(svg) {
@@ -585,7 +733,7 @@ function resetProgress() {
   progress = { history: [], bestScore: 0, bestTime: 0, bestStreak: 0 };
   saveProgress();
   renderProgress();
-  notify("Fortschritt geloescht", "Die lokalen Bestleistungen wurden zurueckgesetzt.");
+  notify("Fortschritt gelöscht", "Die lokalen Bestleistungen wurden zurückgesetzt.");
 }
 
 $("#setup-form").addEventListener("submit", startRound);
@@ -602,6 +750,14 @@ $("#answer-form").addEventListener("submit", (event) => {
 });
 $("#why-button").addEventListener("click", () => $("#explanation-box").classList.toggle("hidden"));
 $("#next-question").addEventListener("click", nextQuestion);
+$("#admin-code-form").addEventListener("submit", unlockAdmin);
+$("#new-question-form").addEventListener("submit", addAdminQuestion);
+$("#admin-question-list").addEventListener("click", (event) => {
+  const button = event.target.closest('[data-action="save-question"]');
+  if (!button) return;
+  saveAdminQuestion(button.dataset.id);
+});
+$("#lock-admin").addEventListener("click", () => $("#admin-panel").classList.add("hidden"));
 $("#quit-round").addEventListener("click", () => {
   clearInterval(timerId);
   round = null;

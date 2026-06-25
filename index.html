@@ -13,8 +13,8 @@
           <p class="eyebrow">Schulfreundliches Lernquiz</p>
           <h1>ImmunoQuiz Lernlabor</h1>
           <p class="hero-copy">
-            Trainiere Antikoerper, Bakterien, Infektionswege und Krankheitsverlauf mit ruhigem Design,
-            klaren Erklaerungen und motivierenden Statistiken.
+            Trainiere Antikörper, Bakterien, Infektionswege und Krankheitsverlauf mit ruhigem Design,
+            klaren Erklärungen und motivierenden Statistiken.
           </p>
         </div>
         <div class="hero-badge" aria-label="Lernwerkzeug">
@@ -27,9 +27,9 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">Runde vorbereiten</p>
-            <h2 id="setup-title">Waehle deine Lernziele</h2>
+            <h2 id="setup-title">Wähle deine Lernziele</h2>
           </div>
-          <button class="quiet-button" id="reset-progress" type="button">Fortschritt loeschen</button>
+          <button class="quiet-button" id="reset-progress" type="button">Fortschritt löschen</button>
         </div>
 
         <form id="setup-form" class="setup-grid">
@@ -58,7 +58,7 @@
 
           <fieldset class="settings-card">
             <legend>Themenbereich</legend>
-            <label><input type="radio" name="topic" value="antikoerper" /> Antikoerper</label>
+            <label><input type="radio" name="topic" value="antikoerper" /> Antikörper</label>
             <label><input type="radio" name="topic" value="bakterien" /> Bakterien</label>
             <label><input type="radio" name="topic" value="infektionswege" /> Infektionswege</label>
             <label><input type="radio" name="topic" value="krankheitsverlauf" /> Krankheitsverlauf</label>
@@ -93,6 +93,69 @@
             <svg id="history-wave" viewBox="0 0 420 120" role="img" aria-label="Wellenkurve der letzten Runden"></svg>
           </div>
         </section>
+
+        <section class="admin-access" aria-labelledby="admin-access-title">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Hinter den Kulissen</p>
+              <h2 id="admin-access-title">Fragen verwalten</h2>
+            </div>
+          </div>
+          <form id="admin-code-form" class="admin-code-form">
+            <label for="admin-code">Code eingeben</label>
+            <input id="admin-code" type="password" inputmode="numeric" autocomplete="off" placeholder="1234" />
+            <button class="primary-button" type="submit">Öffnen</button>
+          </form>
+          <p class="muted">Mit dem Code können Fragen geändert und neue Fragen geschrieben werden.</p>
+        </section>
+
+        <section id="admin-panel" class="admin-panel hidden" aria-labelledby="admin-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Redaktion</p>
+              <h2 id="admin-title">Fragen bearbeiten</h2>
+            </div>
+            <button class="quiet-button" id="lock-admin" type="button">Schließen</button>
+          </div>
+
+          <form id="new-question-form" class="admin-new-form">
+            <h3>Neue Frage schreiben</h3>
+            <label>
+              Frage
+              <textarea name="prompt" rows="2" required placeholder="Neue Frage eingeben..."></textarea>
+            </label>
+            <label>
+              Antwort
+              <input name="answer" required placeholder="z. B. ja, nein oder Fachbegriff" />
+            </label>
+            <div class="admin-form-row">
+              <label>
+                Schwierigkeit
+                <select name="difficulty">
+                  <option value="leicht">leicht</option>
+                  <option value="mittel">mittel</option>
+                  <option value="schwer">schwer</option>
+                </select>
+              </label>
+              <label>
+                Thema
+                <select name="topic">
+                  <option value="antikoerper">Antikörper</option>
+                  <option value="bakterien">Bakterien</option>
+                  <option value="infektionswege">Infektionswege</option>
+                  <option value="krankheitsverlauf">Krankheitsverlauf</option>
+                </select>
+              </label>
+            </div>
+            <button class="primary-button" type="submit">Frage speichern</button>
+          </form>
+
+          <div class="admin-list-head">
+            <h3>Vorhandene Fragen</h3>
+            <span id="question-count-label" class="muted"></span>
+          </div>
+          <div id="admin-question-list" class="admin-question-list"></div>
+        </section>
       </section>
 
       <section id="quiz-screen" class="screen" aria-labelledby="quiz-title">
@@ -107,7 +170,7 @@
 
         <article class="question-card" id="question-card">
           <div class="question-meta">
-            <span class="topic-chip" id="topic-chip">Antikoerper</span>
+            <span class="topic-chip" id="topic-chip">Antikörper</span>
             <span class="difficulty-chip" id="difficulty-chip">leicht</span>
             <span class="super-chip hidden" id="super-chip">★ Superfrage</span>
           </div>
@@ -146,8 +209,8 @@
         <section class="topic-report">
           <div class="section-heading compact">
             <div>
-              <p class="eyebrow">Themenuebersicht</p>
-              <h3>Staerken und Trainingsfelder</h3>
+              <p class="eyebrow">Themenübersicht</p>
+              <h3>Stärken und Trainingsfelder</h3>
             </div>
           </div>
           <div id="topic-report"></div>
@@ -163,7 +226,7 @@
         </section>
         <div class="result-actions">
           <button class="primary-button" id="play-again" type="button">Noch eine Runde</button>
-          <button class="quiet-button" id="back-to-setup" type="button">Einstellungen aendern</button>
+          <button class="quiet-button" id="back-to-setup" type="button">Einstellungen ändern</button>
         </div>
       </section>
     </main>

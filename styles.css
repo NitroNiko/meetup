@@ -182,6 +182,9 @@ button {
 
 .settings-card,
 .progress-panel,
+.admin-access,
+.admin-panel,
+.admin-new-form,
 .question-card,
 .feedback-card,
 .result-hero,
@@ -268,6 +271,118 @@ input[type="radio"] {
 .progress-panel {
   margin-top: 18px;
   padding: 20px;
+}
+
+.admin-access,
+.admin-panel {
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.admin-code-form,
+.admin-form-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr auto;
+}
+
+.admin-code-form label {
+  font-weight: 820;
+  grid-column: 1 / -1;
+}
+
+.admin-code-form input,
+.admin-new-form input,
+.admin-new-form select,
+.admin-new-form textarea,
+.admin-question input,
+.admin-question select,
+.admin-question textarea {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--text);
+  padding: 12px 13px;
+  width: 100%;
+}
+
+.admin-new-form {
+  box-shadow: none;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.admin-new-form h3,
+.admin-list-head h3 {
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.admin-new-form label,
+.admin-question label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.86rem;
+  font-weight: 780;
+  gap: 7px;
+}
+
+.admin-form-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-list-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.admin-question-list {
+  display: grid;
+  gap: 12px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-question {
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.admin-question textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.admin-question-meta {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-question-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.source-chip {
+  background: var(--accent-soft);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 830;
+  padding: 7px 9px;
 }
 
 .best-grid,
@@ -598,6 +713,9 @@ input[type="radio"] {
 
   .setup-grid,
   .settings-card.wide,
+  .admin-code-form,
+  .admin-form-row,
+  .admin-question-meta,
   .best-grid,
   .stats-grid,
   .yes-no-grid,
