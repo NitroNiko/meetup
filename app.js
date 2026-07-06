@@ -1,771 +1,810 @@
-const rarityClass = {
-  Standard: "standard",
-  Erweitert: "erweitert",
-  Exklusiv: "exklusiv",
-  Elite: "elite",
-  "Limitierte Edition": "limitiert",
-  "Ultra-Limitierte Edition": "ultra",
+const STORAGE_KEY = "immunoQuizProgress";
+const QUESTION_STORAGE_KEY = "immunoQuizQuestionBank";
+const ADMIN_CODE = "1234";
+const TOPIC_LABELS = {
+  antikoerper: "Antikörper",
+  bakterien: "Bakterien",
+  infektionswege: "Infektionswege",
+  krankheitsverlauf: "Krankheitsverlauf",
 };
-
-const themeCatalog = [
-  {
-    id: "minimal",
-    name: "Minimal Edition",
-    className: "",
-    colors: ["#eef1f4", "#ffffff"],
-    bonus: "+0% XP",
-    price: "Start",
-  },
-  {
-    id: "midnight",
-    name: "Midnight Edition",
-    className: "theme-midnight",
-    colors: ["#08111f", "#d8b56e"],
-    bonus: "+1% XP",
-    price: "390 Diamanten",
-  },
-  {
-    id: "ice",
-    name: "Ice Edition",
-    className: "theme-ice",
-    colors: ["#f7feff", "#168899"],
-    bonus: "+1% XP",
-    price: "290 Diamanten",
-  },
-  {
-    id: "carbon",
-    name: "Carbon Edition",
-    className: "theme-carbon",
-    colors: ["#14161a", "#c7cbd1"],
-    bonus: "+1% XP",
-    price: "4,99 EUR",
-  },
-  {
-    id: "pinkwave",
-    name: "Pinkwave Edition",
-    className: "theme-pinkwave",
-    colors: ["#fff3f8", "#9f466c"],
-    bonus: "+1% XP",
-    price: "250 Diamanten",
-  },
-  {
-    id: "neon",
-    name: "Neon Edition",
-    className: "theme-neon",
-    colors: ["#050b16", "#1ca7ec"],
-    bonus: "+1% XP",
-    price: "Event",
-  },
-];
-
-const initialStocks = [
-  { id: "nordtech", symbol: "NT", name: "NordTech AG", sector: "Technologie", price: 118, prev: 118, owned: 0, volatility: 0.072 },
-  { id: "alpine", symbol: "AB", name: "Alpine Bank", sector: "Finanzen", price: 76, prev: 76, owned: 0, volatility: 0.047 },
-  { id: "solaris", symbol: "SE", name: "Solaris Energy", sector: "Energie", price: 44, prev: 44, owned: 0, volatility: 0.095 },
-  { id: "primehomes", symbol: "PH", name: "PrimeHomes RE", sector: "Immobilien", price: 132, prev: 132, owned: 0, volatility: 0.054 },
-];
-
-const initialEtfs = [
-  { id: "world-core", symbol: "WC", name: "World Core ETF", sector: "Global", price: 91, prev: 91, owned: 0, volatility: 0.018 },
-  { id: "dividend-select", symbol: "DS", name: "Dividend Select ETF", sector: "Dividenden", price: 64, prev: 64, owned: 0, volatility: 0.014 },
-  { id: "future-cities", symbol: "FC", name: "Future Cities ETF", sector: "Urbanisierung", price: 38, prev: 38, owned: 0, volatility: 0.026 },
-];
-
-const initialProperties = [
-  {
-    id: "studio",
-    name: "Micro Studio",
-    cost: 980,
-    rent: 46,
-    level: 1,
-    owned: true,
-    paint: "#dfe7ef",
-    paintName: "Arctic Grey",
-  },
-  {
-    id: "loft",
-    name: "City Loft",
-    cost: 3200,
-    rent: 155,
-    level: 1,
-    owned: false,
-    paint: "#e8dfd1",
-    paintName: "Warm Sand",
-  },
-  {
-    id: "villa",
-    name: "Glass Villa",
-    cost: 12500,
-    rent: 640,
-    level: 1,
-    owned: false,
-    paint: "#d9f7fb",
-    paintName: "Ice Pearl",
-  },
-];
-
-const shopItems = [
-  { category: "Boost-Items", name: "Dividend Boost 24h", rarity: "Erweitert", description: "+6% Miete und Dividenden fuer einen Tag.", priceType: "gems", basePrice: 34 },
-  { category: "Boost-Items", name: "Focus Portfolio", rarity: "Standard", description: "+4% XP fuer die naechsten 20 Aktionen.", priceType: "cash", basePrice: 420 },
-  { category: "Schutz-Items", name: "Crash Guard", rarity: "Exklusiv", description: "Reduziert den naechsten grossen Kursverlust um 35%.", priceType: "gems", basePrice: 88 },
-  { category: "Schutz-Items", name: "Safe Lease", rarity: "Erweitert", description: "Schuetzt eine Immobilie vor Mietausfall-Events.", priceType: "cash", basePrice: 760 },
-  { category: "Kosmetik-Items", name: "Silberner Profilrahmen", rarity: "Exklusiv", description: "Cleaner Metallrahmen fuer dein Investor-Profil.", priceType: "gems", basePrice: 120 },
-  { category: "Limitierte Items", name: "Goldene Aktie #42/100", rarity: "Ultra-Limitierte Edition", description: "Weltweit limitierter Prestige-Gegenstand mit +0,5% XP.", priceType: "real", basePrice: 19.99 },
-  { category: "Avatar-Shop", name: "Carbon Mantel", rarity: "Elite", description: "Minimalistisches Outfit mit kleinem Handels-XP-Bonus.", priceType: "gems", basePrice: 210 },
-  { category: "Avatar-Shop", name: "Executive Sneaker", rarity: "Erweitert", description: "Dezenter Avatar-Stil fuer langfristige Missionen.", priceType: "cash", basePrice: 950 },
-  { category: "Design-Editionen", name: "Midnight Edition", rarity: "Limitierte Edition", description: "Dunkelblau, Gold und ruhige Kontraste fuer das gesamte UI.", priceType: "gems", basePrice: 390 },
-  { category: "Design-Editionen", name: "Carbon Edition", rarity: "Exklusiv", description: "Schwarz, Silber und reduzierte Oberflaechen.", priceType: "real", basePrice: 4.99 },
-];
-
-const events = [
-  { name: "Dividenden-Boost", detail: "+8% ETF-Ertraege", reward: "seltene Diamantchance" },
-  { name: "Immobilien-Boom", detail: "+12% Miete", reward: "Event-Farbe moeglich" },
-  { name: "Geldregen", detail: "kleine EUR-Drops", reward: "Daily Bonus" },
-  { name: "Crash Watch", detail: "hoehere Volatilitaet", reward: "guenstige Einstiege" },
-];
-
-const leaderboard = [
-  ["A. Keller", 12840000],
-  ["Mira Capital", 9140000],
-  ["NordClan", 6775000],
-  ["You", 0],
-];
-
-const defaultState = {
-  cash: 1250,
-  gems: 24,
-  xp: 0,
-  passLevel: 1,
-  activeTab: "stocks",
-  activeTheme: "minimal",
-  premium: false,
-  pushEnabled: false,
-  selectedShopCategory: "Boost-Items",
-  stocks: initialStocks,
-  etfs: initialEtfs,
-  properties: initialProperties,
-  rules: [
-    { id: "rule-1", assetId: "nordtech", condition: "gain", value: 6, action: "sell", active: true, anchorPrice: 118 },
-    { id: "rule-2", assetId: "solaris", condition: "loss", value: 9, action: "buy", active: true, anchorPrice: 44 },
-  ],
-  notifications: [],
-  ownedThemes: ["minimal"],
+const TOPIC_ICONS = {
+  antikoerper: "🛡️",
+  bakterien: "🧫",
+  infektionswege: "💧",
+  krankheitsverlauf: "🌡️",
 };
+const TYPE_LABELS = {
+  yesno: "Ja/Nein-Frage",
+  input: "Eingabe-Frage",
+  choice: "Multiple-Choice-Frage",
+};
+const DIFFICULTIES = ["leicht", "mittel", "schwer"];
 
-let state = loadState();
+const rawQuestions = [
+  ["leicht", "Können Viren nur in lebenden Zellen überleben?", "ja"],
+  ["leicht", "Sind Bakterien größer als Viren?", "ja"],
+  ["leicht", "Wie nennt man die Abwehrzellen, die Erreger fressen?", "fresszellen"],
+  ["leicht", "Kann man sich durch ungewaschene Hände anstecken?", "ja"],
+  ["leicht", "Wie nennt man die Krankheit durch Influenzaviren?", "grippe"],
+  ["leicht", "Ist Fieber eine normale Abwehrreaktion?", "ja"],
+  ["leicht", "Wie nennt man Erreger, die Krankheiten verursachen?", "krankheitserreger"],
+  ["leicht", "Können Bakterien nützlich sein?", "ja"],
+  ["leicht", "Wie nennt man die Übertragung durch Niesen?", "tröpfcheninfektion"],
+  ["leicht", "Kann man sich durch Küssen anstecken?", "ja"],
+  ["leicht", "Wie heißt die erste Schutzschicht des Körpers?", "haut"],
+  ["leicht", "Können Viren Grippe auslösen?", "ja"],
+  ["leicht", "Wie nennt man die Zeit zwischen Ansteckung und Symptomen?", "inkubationszeit"],
+  ["leicht", "Kann man sich durch verunreinigtes Wasser anstecken?", "ja"],
+  ["leicht", "Wie heißen die Abwehrstoffe der B-Zellen?", "antikörper"],
+  ["leicht", "Wirken Antibiotika gegen Viren?", "nein"],
+  ["leicht", "Wie heißen die Zellen, die Antikörper speichern?", "gedächtniszellen"],
+  ["leicht", "Kann man sich durch Trinkflaschen anstecken?", "ja"],
+  ["leicht", "Wie nennt man eine Überreaktion des Immunsystems?", "allergie"],
+  ["leicht", "Können Viren mutieren?", "ja"],
+  ["leicht", "Wie nennt man Infektionen durch Lebensmittel?", "lebensmittelinfektion"],
+  ["leicht", "Kann man sich durch Blutkontakt anstecken?", "ja"],
+  ["leicht", "Wie heißen die Zellen, die infizierte Zellen zerstören?", "t-killerzellen"],
+  ["leicht", "Können Bakterien sich teilen?", "ja"],
+  ["leicht", "Wie heißen die Erkennungsmerkmale auf Erregern?", "antigene"],
+  ["leicht", "Kann man sich durch Haustiere anstecken?", "ja"],
+  ["leicht", "Wie nennt man die Reaktion, die Fieber auslöst?", "pyrogenreaktion"],
+  ["leicht", "Können Viren in Zellen „schlafen“?", "ja"],
+  ["leicht", "Wie nennt man die Immunreaktion nach einer Impfung?", "aktive immunisierung"],
+  ["leicht", "Kann Stress das Immunsystem schwächen?", "ja"],
+  ["mittel", "Können Bakterien eine Zellwand besitzen?", "ja"],
+  ["mittel", "Wie heißen die Zellen, die Antikörper herstellen?", "b-zellen"],
+  ["mittel", "Können Viren DNA oder RNA enthalten?", "ja"],
+  ["mittel", "Wie heißt die gezielte Immunabwehr?", "spezifische immunabwehr"],
+  ["mittel", "Können Bakterien Resistenzen entwickeln?", "ja"],
+  ["mittel", "Wie heißen die Proteine auf Erregern?", "antigene"],
+  ["mittel", "Können Viren sich ohne Wirtszelle vermehren?", "nein"],
+  ["mittel", "Wie heißen die Zellen, die infizierte Zellen zerstören?", "t-killerzellen"],
+  ["mittel", "Kann man sich durch Lebensmittel anstecken?", "ja"],
+  ["mittel", "Wie heißt die Zeit vor Symptomen?", "inkubationszeit"],
+  ["mittel", "Können Viren mutieren?", "ja"],
+  ["mittel", "Wie heißen Zellen, die Antigene präsentieren?", "dendritische zellen"],
+  ["mittel", "Kann man sich durch Blutkontakt anstecken?", "ja"],
+  ["mittel", "Wie heißen Immunzellen, die Antikörper speichern?", "gedächtniszellen"],
+  ["mittel", "Können Bakterien sich teilen?", "ja"],
+  ["mittel", "Wie heißt die Übertragung durch Tiere?", "vektorinfektion"],
+  ["mittel", "Können Viren nur bestimmte Zellen infizieren?", "ja"],
+  ["mittel", "Wie heißt eine Überreaktion des Immunsystems?", "allergie"],
+  ["mittel", "Können Bakterien nützlich sein?", "ja"],
+  ["mittel", "Wie heißen Zellen, die Erreger markieren?", "plasmazellen"],
+  ["mittel", "Kann man sich durch Trinkflaschen anstecken?", "ja"],
+  ["mittel", "Wie heißt die Fieberreaktion?", "pyrogenreaktion"],
+  ["mittel", "Können Viren latent bleiben?", "ja"],
+  ["mittel", "Wie heißt die Immunreaktion nach Impfung?", "aktive immunisierung"],
+  ["mittel", "Können Bakterien Sporen bilden?", "ja"],
+  ["mittel", "Wie heißt die schnelle Immunabwehr?", "unspezifische immunabwehr"],
+  ["mittel", "Können Viren ihre Oberfläche verändern?", "ja"],
+  ["mittel", "Wie heißt die Phase stärkster Symptome?", "krankheitsphase"],
+  ["mittel", "Kann Stress das Immunsystem schwächen?", "ja"],
+  ["mittel", "Wie heißen Zellen, die Antigene präsentieren?", "antigenpräsentierende zellen"],
+  ["mittel", "Können Viren über Luft übertragen werden?", "ja"],
+  ["mittel", "Wie heißt die Reaktion des Immunsystems?", "immunantwort"],
+  ["mittel", "Können Bakterien Giftstoffe bilden?", "ja"],
+  ["mittel", "Wie heißt die Krankheit durch HIV?", "aids"],
+  ["mittel", "Können Viren in der Luft überleben?", "ja"],
+  ["mittel", "Wie heißen Zellen, die T-Killer aktivieren?", "t-helferzellen"],
+  ["mittel", "Können Bakterien durch Hitze sterben?", "ja"],
+  ["mittel", "Wie heißt die Übertragung durch Wasser?", "wasserinfektion"],
+  ["mittel", "Können Viren Tiere und Menschen infizieren?", "ja"],
+  ["mittel", "Wie heißt der Angriff auf eigene Zellen?", "autoimmunreaktion"],
+  ["schwer", "Wie heißen Zellen, die Antigene präsentieren?", "antigenpräsentierende zellen"],
+  ["schwer", "Können Viren ihre Oberfläche verändern?", "ja"],
+  ["schwer", "Wie heißt der Angriff auf eigene Zellen?", "autoimmunreaktion"],
+  ["schwer", "Können Bakterien Sporen bilden?", "ja"],
+  ["schwer", "Wie heißen Warnproteine infizierter Zellen?", "interferone"],
+  ["schwer", "Können Viren jahrelang inaktiv bleiben?", "ja"],
+  ["schwer", "Wie heißt die Immunreaktion durch Impfung?", "aktive immunisierung"],
+  ["schwer", "Können T-Helferzellen B-Zellen aktivieren?", "ja"],
+  ["schwer", "Wie heißt die Immunreaktion, die sofort startet?", "unspezifische immunabwehr"],
+  ["schwer", "Können Viren RNA als Erbmaterial haben?", "ja"],
+  ["schwer", "Wie heißt die gezielte Abwehr?", "spezifische immunabwehr"],
+  ["schwer", "Können Bakterien horizontal Gene übertragen?", "ja"],
+  ["schwer", "Wie heißt die Phase nach der Krankheitsphase?", "genesungsphase"],
+  ["schwer", "Können Viren Wirtszellen zerstören?", "ja"],
+  ["schwer", "Wie heißen die Zellen, die Antikörper produzieren?", "plasmazellen"],
+  ["schwer", "Können Viren DNA in Wirtszellen einbauen?", "ja"],
+  ["schwer", "Wie heißt die Reaktion, wenn Fresszellen Erreger aufnehmen?", "phagozytose"],
+  ["schwer", "Können Bakterien Biofilme bilden?", "ja"],
+  ["schwer", "Wie heißen Immunzellen, die Virenreste präsentieren?", "dendritische zellen"],
+  ["schwer", "Können Viren mehrere Arten infizieren?", "ja"],
+  ["schwer", "Wie heißt die Reaktion, wenn Antikörper Antigene verklumpen?", "agglutination"],
+  ["schwer", "Können Bakterien Toxine abgeben?", "ja"],
+  ["schwer", "Wie heißt die Phase, in der Erregerzahl sinkt?", "abklingphase"],
+  ["schwer", "Können Viren Immunzellen infizieren?", "ja"],
+  ["schwer", "Wie heißt die Reaktion, wenn Antikörper Viren blockieren?", "neutralisation"],
+  ["schwer", "Können Bakterien Plasmide austauschen?", "ja"],
+  ["schwer", "Wie heißt die Immunreaktion, die Gedächtniszellen bildet?", "sekundäre immunantwort"],
+  ["schwer", "Können Viren Enzyme nutzen, um Zellen zu öffnen?", "ja"],
+  ["schwer", "Wie heißt die Reaktion, wenn Makrophagen Erreger präsentieren?", "antigenpräsentation"],
+  ["schwer", "Können Viren Wirtszellen umprogrammieren?", "ja"],
+];
 
-function loadState() {
+let questionBank = loadQuestionBank();
+let questions = buildQuestionSet();
+let progress = loadProgress();
+let round = null;
+let timerId = null;
+let audioContext = null;
+
+const $ = (selector) => document.querySelector(selector);
+
+function loadProgress() {
   try {
-    const stored = JSON.parse(localStorage.getItem("capitalAtelierState"));
-    if (!stored) return structuredClone(defaultState);
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
     return {
-      ...structuredClone(defaultState),
-      ...stored,
-      stocks: mergeAssets(initialStocks, stored.stocks),
-      etfs: mergeAssets(initialEtfs, stored.etfs),
-      properties: mergeAssets(initialProperties, stored.properties),
+      history: Array.isArray(stored?.history) ? stored.history.slice(-12) : [],
+      bestScore: Number(stored?.bestScore || 0),
+      bestTime: Number(stored?.bestTime || 0),
+      bestStreak: Number(stored?.bestStreak || 0),
     };
   } catch {
-    return structuredClone(defaultState);
+    return { history: [], bestScore: 0, bestTime: 0, bestStreak: 0 };
   }
 }
 
-function mergeAssets(defaults, stored = []) {
-  return defaults.map((asset) => ({ ...asset, ...(stored.find((item) => item.id === asset.id) || {}) }));
+function loadQuestionBank() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(QUESTION_STORAGE_KEY));
+    return {
+      edits: sanitizeQuestionEdits(stored?.edits),
+      custom: Array.isArray(stored?.custom) ? stored.custom.map(sanitizeCustomQuestion).filter(Boolean) : [],
+    };
+  } catch {
+    return { edits: {}, custom: [] };
+  }
 }
 
-function saveState() {
-  localStorage.setItem("capitalAtelierState", JSON.stringify(state));
+function isRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
 }
 
-function euro(value, digits = 0) {
-  return value.toLocaleString("de-DE", {
-    currency: "EUR",
-    maximumFractionDigits: digits,
-    minimumFractionDigits: digits,
-    style: "currency",
+function textValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function sanitizeQuestionFields(question) {
+  if (!isRecord(question)) return null;
+  const sanitized = {};
+  const prompt = textValue(question.prompt);
+  const answer = textValue(question.answer).toLowerCase();
+  if (prompt) sanitized.prompt = prompt;
+  if (answer) sanitized.answer = answer;
+  if (DIFFICULTIES.includes(question.difficulty)) sanitized.difficulty = question.difficulty;
+  if (Object.prototype.hasOwnProperty.call(TOPIC_LABELS, question.topic)) sanitized.topic = question.topic;
+  return sanitized;
+}
+
+function sanitizeQuestionEdits(edits) {
+  if (!isRecord(edits)) return {};
+  return Object.entries(edits).reduce((validEdits, [id, edit]) => {
+    const sanitized = sanitizeQuestionFields(edit);
+    if (/^q-\d+$/.test(id) && sanitized && Object.keys(sanitized).length) validEdits[id] = sanitized;
+    return validEdits;
+  }, {});
+}
+
+function sanitizeCustomQuestion(question) {
+  const sanitized = sanitizeQuestionFields(question);
+  const id = isRecord(question) ? textValue(question.id) : "";
+  if (!id || !sanitized?.prompt || !sanitized.answer || !sanitized.difficulty || !sanitized.topic) return null;
+  return { id, ...sanitized };
+}
+
+function saveQuestionBank() {
+  localStorage.setItem(QUESTION_STORAGE_KEY, JSON.stringify(questionBank));
+}
+
+function buildQuestionSet() {
+  const base = rawQuestions.map(([difficulty, prompt, answer], index) => {
+    const id = "q-" + index;
+    return createQuestion({ difficulty, prompt, answer, ...questionBank.edits[id] }, id, "Basisfrage");
+  });
+  const custom = questionBank.custom.map((question) => createQuestion(question, question.id, "Eigene Frage"));
+  return [...base, ...custom];
+}
+
+function createQuestion(question, id, source) {
+  const topic = question.topic || inferTopic(question.prompt, question.answer);
+  return {
+    id,
+    source,
+    difficulty: question.difficulty,
+    prompt: question.prompt,
+    answer: question.answer,
+    topic,
+    baseType: normalize(question.answer) === "ja" || normalize(question.answer) === "nein" ? "yesno" : "input",
+    explanation: buildExplanation(question.prompt, question.answer, topic),
+  };
+}
+
+function refreshQuestionSet() {
+  questions = buildQuestionSet();
+  renderAdminQuestions();
+}
+
+function saveProgress() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+}
+
+function inferTopic(prompt, answer) {
+  const text = normalize(prompt + " " + answer);
+  if (/bakter|antibiotika|zellwand|resistenz|sporen|giftstoffe|toxine|biofilme|plasmide|horizontal|hitze/.test(text)) return "bakterien";
+  if (/ansteck|ubertragung|niesen|kussen|wasser|lebensmittel|blutkontakt|trinkflaschen|haustiere|luft|vektor|tiere/.test(text)) return "infektionswege";
+  if (/fieber|grippe|aids|inkubationszeit|symptom|krankheit|phase|genesung|abkling|latent|inaktiv|stress|pyrogen|oberflache|mutieren|wirtszelle|dna|rna/.test(text)) return "krankheitsverlauf";
+  return "antikoerper";
+}
+
+function buildExplanation(prompt, answer, topic) {
+  const topicText = {
+    antikoerper: "Die Immunabwehr erkennt Erreger an typischen Merkmalen und reagiert mit spezialisierten Zellen oder Antikörpern.",
+    bakterien: "Bakterien sind eigenständige Zellen; sie können sich teilen, Strukturen bilden und je nach Art nützlich oder schädlich sein.",
+    infektionswege: "Infektionen entstehen, wenn Erreger über Kontakt, Luft, Wasser, Lebensmittel, Tiere oder Körperflüssigkeiten weitergegeben werden.",
+    krankheitsverlauf: "Beim Krankheitsverlauf vermehren sich Erreger, der Körper reagiert und Symptome klingen nach erfolgreicher Abwehr wieder ab.",
+  }[topic];
+
+  if (answer === "ja") return "Ja. " + topicText;
+  if (answer === "nein") return "Nein. " + topicText;
+  return "Der gesuchte Begriff ist \"" + answer + "\". " + topicText;
+}
+
+function normalize(value) {
+  return String(value)
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[„“"'.]/g, "")
+    .replace(/[‑–—-]/g, "-")
+    .replace(/ß/g, "ss")
+    .replace(/\s+/g, " ");
+}
+
+function formValue(name) {
+  return new FormData($("#setup-form")).get(name);
+}
+
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach((screen) => screen.classList.toggle("active", screen.id === id));
+}
+
+function shuffle(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const next = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[next]] = [copy[next], copy[index]];
+  }
+  return copy;
+}
+
+function samplePool(pool, count) {
+  const shuffled = shuffle(pool);
+  if (shuffled.length >= count) return shuffled.slice(0, count);
+  const repeated = [];
+  while (repeated.length < count) repeated.push(...shuffle(pool));
+  return repeated.slice(0, count);
+}
+
+function startRound(event) {
+  event.preventDefault();
+  const settings = {
+    questionCount: Number(formValue("questionCount")),
+    difficulty: formValue("difficulty"),
+    questionType: formValue("questionType"),
+    topic: formValue("topic"),
+    timer: Number(formValue("timer")),
+  };
+  const pool = getQuestionPool(settings);
+  if (!pool.length) {
+    notify("Keine passenden Fragen", "Wähle gemischte Themen oder einen anderen Fragetyp.");
+    return;
+  }
+
+  const selected = samplePool(pool, settings.questionCount).map((question) => ({
+    ...question,
+    playType: pickPlayType(question, settings.questionType),
+  }));
+  const superIndex = Math.floor(Math.random() * selected.length);
+  selected[superIndex].isSuper = true;
+
+  round = {
+    settings,
+    questions: selected,
+    index: 0,
+    score: 0,
+    bonusPoints: 0,
+    streak: 0,
+    bestStreak: 0,
+    correct: 0,
+    wrong: 0,
+    startedAt: Date.now(),
+    questionStartedAt: Date.now(),
+    answerTimes: [],
+    topicStats: createTopicStats(),
+    answered: false,
+  };
+
+  showScreen("quiz-screen");
+  renderQuestion();
+}
+
+function getQuestionPool(settings) {
+  return questions.filter((question) => {
+    const difficultyOk = settings.difficulty === "gemischt" || question.difficulty === settings.difficulty;
+    const topicOk = settings.topic === "gemischt" || question.topic === settings.topic;
+    const typeOk =
+      settings.questionType === "mixed" ||
+      settings.questionType === "choice" ||
+      (settings.questionType === "yesno" && question.baseType === "yesno") ||
+      (settings.questionType === "input" && question.baseType === "input");
+    return difficultyOk && topicOk && typeOk;
   });
 }
 
-function gems(value) {
-  return Math.floor(value).toLocaleString("de-DE");
-}
-
-function allAssets() {
-  return [...state.stocks, ...state.etfs];
-}
-
-function getAsset(assetId) {
-  return allAssets().find((asset) => asset.id === assetId);
-}
-
-function netWorth() {
-  const securityValue = allAssets().reduce((total, asset) => total + asset.price * asset.owned, 0);
-  const propertyValue = state.properties.reduce((total, property) => {
-    return total + (property.owned ? property.cost * (1 + (property.level - 1) * 0.22) : 0);
-  }, 0);
-  return state.cash + securityValue + propertyValue;
-}
-
-function addXp(amount) {
-  const themeBonus = state.activeTheme === "minimal" ? 1 : 1.01;
-  const premiumBonus = state.premium ? 1.04 : 1;
-  state.xp += Math.round(amount * themeBonus * premiumBonus);
-  while (state.xp >= 100) {
-    state.xp -= 100;
-    state.passLevel = Math.min(50, state.passLevel + 1);
-    const reward = state.passLevel % 5 === 0 ? 4 : 1;
-    state.gems += reward;
-    notify("Battle Pass Level " + state.passLevel, "Belohnung erhalten: " + reward + " Diamanten.");
+function pickPlayType(question, selectedType) {
+  if (selectedType === "choice") return "choice";
+  if (selectedType === "mixed") {
+    const options = question.baseType === "yesno" ? ["yesno", "choice"] : ["input", "choice"];
+    return options[Math.floor(Math.random() * options.length)];
   }
+  return selectedType;
 }
 
-function notify(title, message, important = false) {
-  state.notifications.unshift({ title, message, at: Date.now() });
-  state.notifications = state.notifications.slice(0, 12);
+function createTopicStats() {
+  return Object.keys(TOPIC_LABELS).reduce((stats, topic) => {
+    stats[topic] = { total: 0, correct: 0 };
+    return stats;
+  }, {});
+}
 
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.innerHTML = `<strong>${title}</strong><span>${message}</span>`;
-  document.getElementById("toast-stack").appendChild(toast);
-  setTimeout(() => toast.remove(), 4200);
+function renderQuestion() {
+  clearInterval(timerId);
+  round.answered = false;
+  round.questionStartedAt = Date.now();
 
-  if (state.pushEnabled && important && "Notification" in window && Notification.permission === "granted") {
-    new Notification(title, { body: message });
+  const question = round.questions[round.index];
+  $("#feedback-card").className = "feedback-card hidden";
+  $("#explanation-box").classList.add("hidden");
+  $("#question-counter").textContent = `${round.index + 1} / ${round.questions.length}`;
+  $("#score-pill").textContent = `${round.score} Punkte`;
+  $("#timer-pill").textContent = round.settings.timer ? `${round.settings.timer}s` : "Ohne Timer";
+  $("#timer-pill").classList.remove("warning");
+  $("#timer-bar").style.width = "100%";
+  $("#topic-chip").textContent = `${TOPIC_ICONS[question.topic]} ${TOPIC_LABELS[question.topic]}`;
+  $("#difficulty-chip").textContent = question.difficulty;
+  $("#super-chip").classList.toggle("hidden", !question.isSuper);
+  $("#question-type-label").textContent = TYPE_LABELS[question.playType];
+  $("#quiz-title").textContent = question.prompt;
+  renderAnswerForm(question);
+
+  if (round.settings.timer) startTimer(round.settings.timer);
+}
+
+function renderAnswerForm(question) {
+  if (question.playType === "yesno") {
+    $("#answer-form").innerHTML = `
+      <div class="yes-no-grid">
+        <button class="choice-button" type="button" data-answer="ja">Ja</button>
+        <button class="choice-button" type="button" data-answer="nein">Nein</button>
+      </div>
+    `;
+    return;
   }
+
+  if (question.playType === "choice") {
+    $("#answer-form").innerHTML = `
+      <div class="choice-grid">
+        ${buildChoices(question)
+          .map((choice) => `<button class="choice-button" type="button" data-answer="${escapeAttribute(choice)}">${choice}</button>`)
+          .join("")}
+      </div>
+    `;
+    return;
+  }
+
+  $("#answer-form").innerHTML = `
+    <input class="text-answer" id="text-answer" autocomplete="off" placeholder="Antwort eingeben..." />
+    <button class="primary-button" type="submit">Antwort prüfen</button>
+  `;
+  $("#text-answer").focus();
 }
 
-function updateWallet() {
-  document.getElementById("cash-balance").textContent = euro(state.cash);
-  document.getElementById("gem-balance").textContent = gems(state.gems);
-  document.getElementById("net-worth").textContent = euro(netWorth());
-  document.getElementById("pass-level").textContent = "Level " + state.passLevel + " / 50";
-  document.getElementById("xp-progress").style.width = `${state.xp}%`;
+function buildChoices(question) {
+  if (question.answer === "ja" || question.answer === "nein") return shuffle(["ja", "nein"]);
+  const answers = [...new Set(questions.filter((item) => item.baseType === "input").map((item) => item.answer))].filter((answer) => answer !== question.answer);
+  const sameTopic = answers.filter((answer) => questions.some((item) => item.answer === answer && item.topic === question.topic));
+  const distractors = shuffle([...sameTopic, ...answers]).slice(0, 3);
+  return shuffle([question.answer, ...distractors]);
 }
 
-function renderStocks() {
-  document.getElementById("stock-list").innerHTML = state.stocks.map(renderAssetCard).join("");
-  const ruleAsset = document.getElementById("rule-asset");
-  ruleAsset.innerHTML = state.stocks.map((asset) => `<option value="${asset.id}">${asset.name}</option>`).join("");
+function escapeAttribute(value) {
+  return escapeHtml(value).replace(/"/g, "&quot;");
 }
 
-function renderEtfs() {
-  document.getElementById("etf-list").innerHTML = state.etfs.map(renderAssetCard).join("");
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-function renderAssetCard(asset) {
-  const change = ((asset.price - asset.prev) / asset.prev) * 100;
-  const isUp = change >= 0;
-  return `
-    <article class="market-card">
-      <header>
-        <div class="asset-name">
-          <span class="asset-icon">${asset.symbol}</span>
+function startTimer(seconds) {
+  const end = Date.now() + seconds * 1000;
+  timerId = setInterval(() => {
+    const remaining = Math.max(0, end - Date.now());
+    const percent = (remaining / (seconds * 1000)) * 100;
+    $("#timer-bar").style.width = percent + "%";
+    $("#timer-pill").textContent = Math.ceil(remaining / 1000) + "s";
+    $("#timer-pill").classList.toggle("warning", remaining <= 5000);
+    if (remaining <= 0) submitAnswer("", true);
+  }, 100);
+}
+
+function submitAnswer(value, timedOut = false) {
+  if (!round || round.answered) return;
+  round.answered = true;
+  clearInterval(timerId);
+
+  const question = round.questions[round.index];
+  const answerTime = (Date.now() - round.questionStartedAt) / 1000;
+  const isCorrect = !timedOut && normalize(value) === normalize(question.answer);
+  const basePoints = question.isSuper ? 20 : 10;
+  const penalty = question.isSuper ? -10 : -5;
+  let points = isCorrect ? basePoints : penalty;
+  let bonus = 0;
+
+  if (isCorrect) {
+    round.streak += 1;
+    bonus = streakBonus(round.streak);
+    points += bonus;
+    round.correct += 1;
+    playSound(round.streak >= 5 ? "flame" : "correct");
+  } else {
+    round.streak = 0;
+    round.wrong += 1;
+    playSound("wrong");
+  }
+
+  round.score += points;
+  round.bonusPoints += bonus;
+  round.bestStreak = Math.max(round.bestStreak, round.streak);
+  round.answerTimes.push(answerTime);
+  round.topicStats[question.topic].total += 1;
+  if (isCorrect) round.topicStats[question.topic].correct += 1;
+
+  renderFeedback({ question, isCorrect, points, bonus, timedOut });
+}
+
+function streakBonus(streak) {
+  if (streak >= 5) return 10;
+  if (streak >= 4) return 6;
+  if (streak >= 3) return 4;
+  if (streak >= 2) return 2;
+  return 0;
+}
+
+function renderFeedback(result) {
+  const { question, isCorrect, points, bonus, timedOut } = result;
+  const card = $("#feedback-card");
+  card.className = "feedback-card " + (isCorrect ? "correct" : "wrong");
+  $("#feedback-label").textContent = timedOut ? "Zeit abgelaufen" : "Feedback";
+  $("#feedback-title").textContent = isCorrect ? streakTitle(bonus) : "Noch nicht richtig";
+  $("#feedback-points").textContent = `${points > 0 ? "+" : ""}${points}`;
+  $("#correct-answer").textContent = isCorrect ? "Sehr gut beantwortet." : `Richtige Antwort: ${question.answer}`;
+  $("#explanation-icon").textContent = TOPIC_ICONS[question.topic];
+  $("#explanation-text").textContent = question.explanation;
+  $("#score-pill").textContent = `${round.score} Punkte`;
+}
+
+function streakTitle(bonus) {
+  if (round.streak >= 5) return `🔥 ${round.streak}er-Streak! Flammenbonus +${bonus}`;
+  if (bonus > 0) return `${round.streak}er-Streak! Bonus +${bonus}`;
+  return "Richtig";
+}
+
+function nextQuestion() {
+  if (round.index < round.questions.length - 1) {
+    round.index += 1;
+    renderQuestion();
+    return;
+  }
+  finishRound();
+}
+
+function finishRound() {
+  clearInterval(timerId);
+  const averageTime = average(round.answerTimes);
+  const summary = {
+    date: new Date().toISOString(),
+    score: round.score,
+    correct: round.correct,
+    wrong: round.wrong,
+    bestStreak: round.bestStreak,
+    averageTime,
+    totalTime: (Date.now() - round.startedAt) / 1000,
+    bonusPoints: round.bonusPoints,
+    topicStats: round.topicStats,
+  };
+
+  const wasBestScore = summary.score > progress.bestScore;
+  const wasBestTime = !progress.bestTime || summary.averageTime < progress.bestTime;
+  const wasBestStreak = summary.bestStreak > progress.bestStreak;
+  progress.bestScore = Math.max(progress.bestScore, summary.score);
+  progress.bestTime = progress.bestTime ? Math.min(progress.bestTime, summary.averageTime) : summary.averageTime;
+  progress.bestStreak = Math.max(progress.bestStreak, summary.bestStreak);
+  progress.history.push(summary);
+  progress.history = progress.history.slice(-12);
+  saveProgress();
+
+  renderResults(summary, { wasBestScore, wasBestTime, wasBestStreak });
+  renderProgress();
+  showScreen("results-screen");
+}
+
+function average(values) {
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function renderResults(summary, bestFlags) {
+  $("#final-score").textContent = `${summary.score} Punkte`;
+  const bests = [
+    bestFlags.wasBestScore && "beste Punktzahl",
+    bestFlags.wasBestTime && "beste Durchschnittszeit",
+    bestFlags.wasBestStreak && "beste Streak",
+  ].filter(Boolean);
+  $("#best-message").textContent = bests.length ? "Neue Bestleistung: " + bests.join(", ") + "." : "Trainiere weiter gegen deine gespeicherten Bestwerte.";
+  $("#stats-grid").innerHTML = [
+    ["Richtig", summary.correct],
+    ["Falsch", summary.wrong],
+    ["Höchste Streak", summary.bestStreak],
+    ["Ø Antwortzeit", formatSeconds(summary.averageTime)],
+    ["Gesamtpunkte", summary.score],
+    ["Bonuspunkte", summary.bonusPoints],
+    ["Gesamtzeit", formatSeconds(summary.totalTime)],
+    ["Runden gespeichert", progress.history.length],
+  ]
+    .map(([label, value]) => `<article class="stat-card"><span class="muted">${label}</span><strong>${value}</strong></article>`)
+    .join("");
+  $("#topic-report").innerHTML = renderTopicRows(summary.topicStats);
+  renderWave($("#results-wave"));
+}
+
+function renderTopicRows(stats) {
+  return Object.entries(TOPIC_LABELS)
+    .map(([topic, label]) => {
+      const item = stats[topic] || { total: 0, correct: 0 };
+      const percent = item.total ? Math.round((item.correct / item.total) * 100) : 0;
+      return `
+        <article class="topic-row">
           <div>
-            <strong>${asset.name}</strong>
-            <small>${asset.sector} · Bestand ${asset.owned}</small>
+            <strong>${TOPIC_ICONS[topic]} ${label}</strong>
+            <span class="muted">${item.correct} von ${item.total} richtig</span>
           </div>
-        </div>
-        <span class="change ${isUp ? "up" : "down"}">${isUp ? "+" : ""}${change.toFixed(2)}%</span>
-      </header>
-      <div class="asset-metrics">
-        <div>
-          <span>Preis</span>
-          <div class="price">${euro(asset.price, 2)}</div>
-        </div>
-        <div>
-          <span>Wert</span>
-          <div class="price">${euro(asset.price * asset.owned)}</div>
-        </div>
-      </div>
-      <div class="asset-actions">
-        <button data-action="buy-asset" data-id="${asset.id}">Kaufen</button>
-        <button data-action="sell-asset" data-id="${asset.id}">Verkaufen</button>
-      </div>
-    </article>
+          <div class="bar"><span style="width:${percent}%"></span></div>
+          <strong>${percent}%</strong>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderProgress() {
+  $("#best-grid").innerHTML = [
+    ["Beste Punktzahl", progress.bestScore || "—"],
+    ["Beste Zeit", progress.bestTime ? formatSeconds(progress.bestTime) : "—"],
+    ["Beste Streak", progress.bestStreak || "—"],
+    ["Runden", progress.history.length],
+  ]
+    .map(([label, value]) => `<article class="best-card"><span class="muted">${label}</span><strong>${value}</strong></article>`)
+    .join("");
+  renderWave($("#history-wave"));
+}
+
+function renderAdminQuestions() {
+  const list = $("#admin-question-list");
+  if (!list) return;
+  $("#question-count-label").textContent = `${questions.length} Fragen`;
+  list.innerHTML = questions
+    .map(
+      (question) => `
+        <article class="admin-question" data-question-id="${question.id}">
+          <div class="admin-question-actions">
+            <span class="source-chip">${question.source}</span>
+            <button class="quiet-button" type="button" data-action="save-question" data-id="${question.id}">Speichern</button>
+          </div>
+          <label>
+            Frage
+            <textarea data-field="prompt">${escapeHtml(question.prompt)}</textarea>
+          </label>
+          <label>
+            Antwort
+            <input data-field="answer" value="${escapeAttribute(question.answer)}" />
+          </label>
+          <div class="admin-question-meta">
+            <label>
+              Schwierigkeit
+              <select data-field="difficulty">${difficultyOptions(question.difficulty)}</select>
+            </label>
+            <label>
+              Thema
+              <select data-field="topic">${topicOptions(question.topic)}</select>
+            </label>
+            <label>
+              Fragetyp
+              <input value="${TYPE_LABELS[question.baseType]}" disabled />
+            </label>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function difficultyOptions(active) {
+  return ["leicht", "mittel", "schwer"].map((value) => `<option value="${value}" ${value === active ? "selected" : ""}>${value}</option>`).join("");
+}
+
+function topicOptions(active) {
+  return Object.entries(TOPIC_LABELS)
+    .map(([value, label]) => `<option value="${value}" ${value === active ? "selected" : ""}>${label}</option>`)
+    .join("");
+}
+
+function unlockAdmin(event) {
+  event.preventDefault();
+  if ($("#admin-code").value !== ADMIN_CODE) {
+    notify("Code nicht korrekt", "Bitte prüfe den vierstelligen Code.");
+    return;
+  }
+  $("#admin-panel").classList.remove("hidden");
+  $("#admin-code").value = "";
+  renderAdminQuestions();
+  notify("Redaktion geöffnet", "Du kannst Fragen jetzt bearbeiten oder neu schreiben.");
+}
+
+function saveAdminQuestion(questionId) {
+  const card = document.querySelector(`[data-question-id="${questionId}"]`);
+  if (!card) return;
+  const updated = {
+    prompt: card.querySelector('[data-field="prompt"]').value.trim(),
+    answer: card.querySelector('[data-field="answer"]').value.trim().toLowerCase(),
+    difficulty: card.querySelector('[data-field="difficulty"]').value,
+    topic: card.querySelector('[data-field="topic"]').value,
+  };
+  if (!updated.prompt || !updated.answer) {
+    notify("Frage unvollständig", "Frage und Antwort müssen ausgefüllt sein.");
+    return;
+  }
+  if (questionId.startsWith("q-")) {
+    questionBank.edits[questionId] = updated;
+  } else {
+    questionBank.custom = questionBank.custom.map((question) => (question.id === questionId ? { ...question, ...updated } : question));
+  }
+  saveQuestionBank();
+  refreshQuestionSet();
+  notify("Frage gespeichert", "Die Änderung ist lokal in der App verfügbar.");
+}
+
+function addAdminQuestion(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const question = {
+    id: "custom-" + Date.now(),
+    prompt: String(data.get("prompt")).trim(),
+    answer: String(data.get("answer")).trim().toLowerCase(),
+    difficulty: data.get("difficulty"),
+    topic: data.get("topic"),
+  };
+  if (!question.prompt || !question.answer) {
+    notify("Frage unvollständig", "Frage und Antwort müssen ausgefüllt sein.");
+    return;
+  }
+  questionBank.custom.unshift(question);
+  saveQuestionBank();
+  refreshQuestionSet();
+  event.target.reset();
+  notify("Neue Frage gespeichert", "Sie erscheint sofort im Fragenpool.");
+}
+
+function renderWave(svg) {
+  const scores = progress.history.map((item) => item.score);
+  if (!scores.length) {
+    svg.innerHTML = `<text x="210" y="64" text-anchor="middle" fill="#60706b" font-size="15">Noch keine gespeicherten Runden</text>`;
+    return;
+  }
+  const max = Math.max(...scores, 10);
+  const points = scores.map((score, index) => {
+    const x = scores.length === 1 ? 210 : 24 + (index * 372) / (scores.length - 1);
+    const y = 98 - (score / max) * 74;
+    return [x, y];
+  });
+  const path = points.map(([x, y], index) => `${index ? "L" : "M"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const lastPoint = points[points.length - 1];
+  const area = `${path} L ${lastPoint[0].toFixed(1)} 105 L ${points[0][0].toFixed(1)} 105 Z`;
+  svg.innerHTML = `
+    <path d="${area}" fill="rgba(37, 111, 104, 0.12)"></path>
+    <path d="${path}" fill="none" stroke="#256f68" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+    ${points.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#6d91ff"></circle>`).join("")}
   `;
 }
 
-function renderRules() {
-  const maxRules = state.premium ? 8 : 3;
-  const activeRules = state.rules.filter((rule) => rule.active).length;
-  document.getElementById("rule-limit").textContent = `${activeRules} / ${maxRules} aktiv`;
-  document.getElementById("rules-list").innerHTML = state.rules
-    .map((rule) => {
-      const asset = getAsset(rule.assetId);
-      return `
-        <article class="rule-row">
-          <div>
-            <strong>${asset ? asset.name : "Unbekannt"}</strong>
-            <small>${conditionLabel(rule)} · ${rule.action === "buy" ? "kaufen" : "verkaufen"}</small>
-          </div>
-          <label class="switch">
-            <input type="checkbox" ${rule.active ? "checked" : ""} data-action="toggle-rule" data-id="${rule.id}" />
-            <span></span>
-          </label>
-        </article>
-      `;
-    })
-    .join("");
+function formatSeconds(value) {
+  return `${value.toFixed(1).replace(".", ",")}s`;
 }
 
-function conditionLabel(rule) {
-  const value = Number(rule.value).toLocaleString("de-DE");
-  if (rule.condition === "gain") return `bei +${value}%`;
-  if (rule.condition === "loss") return `bei -${value}%`;
-  if (rule.condition === "above") return `ueber ${euro(rule.value)}`;
-  return `unter ${euro(rule.value)}`;
-}
-
-function renderProperties() {
-  document.getElementById("property-list").innerHTML = state.properties
-    .map((property) => {
-      const cost = property.owned ? Math.round(property.cost * 0.38 * property.level) : property.cost;
-      const rent = Math.round(property.rent * property.level * paintBonus(property.paintName));
-      return `
-        <article class="property-card">
-          <div class="property-art" style="--paint: ${property.paint}"></div>
-          <div class="content">
-            <header>
-              <div>
-                <strong>${property.name}</strong>
-                <small>${property.owned ? "Level " + property.level + " · " + property.paintName : "Noch nicht gekauft"}</small>
-              </div>
-              <span class="limit-chip">${property.owned ? euro(rent) + " Miete" : euro(cost)}</span>
-            </header>
-            <div class="property-actions">
-              <button data-action="${property.owned ? "upgrade-property" : "buy-property"}" data-id="${property.id}">
-                ${property.owned ? "Upgrade " + euro(cost) : "Kaufen"}
-              </button>
-              <button class="secondary" data-action="paint-property" data-id="${property.id}">
-                Farbe
-              </button>
-            </div>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-}
-
-function paintBonus(paintName) {
-  if (paintName.includes("Event")) return 1.08;
-  if (paintName.includes("Diamond")) return 1.05;
-  return 1.02;
-}
-
-function renderEvents() {
-  document.getElementById("event-strip").innerHTML = events
-    .map(
-      (event) => `
-        <article class="event-card">
-          <div>
-            <strong>${event.name}</strong>
-            <div class="muted">${event.detail}</div>
-          </div>
-          <span class="limit-chip">${event.reward}</span>
-        </article>
-      `,
-    )
-    .join("");
-}
-
-function renderShopCategories() {
-  const categories = [...new Set(shopItems.map((item) => item.category))];
-  document.getElementById("shop-categories").innerHTML = categories
-    .map(
-      (category) => `
-        <button class="${category === state.selectedShopCategory ? "active" : ""}" data-action="shop-category" data-category="${category}">
-          ${category}
-        </button>
-      `,
-    )
-    .join("");
-}
-
-function dynamicPrice(item) {
-  const demand = 1 + (Math.sin(Date.now() / 100000 + item.name.length) + 1) * 0.055;
-  const eventModifier = item.category.includes("Limitierte") ? 1.14 : 0.98;
-  return item.basePrice * demand * eventModifier;
-}
-
-function renderShop() {
-  renderShopCategories();
-  document.getElementById("shop-list").innerHTML = shopItems
-    .filter((item) => item.category === state.selectedShopCategory)
-    .map((item) => {
-      const price = dynamicPrice(item);
-      const priceLabel =
-        item.priceType === "gems" ? `${Math.round(price)} Diamanten` : item.priceType === "cash" ? euro(price) : `${price.toFixed(2)} EUR`;
-      const cls = rarityClass[item.rarity] || "standard";
-      return `
-        <article class="shop-card">
-          <header>
-            <div>
-              <strong>${item.name}</strong>
-              <small>${item.description}</small>
-            </div>
-            <span class="rarity ${cls}">${item.rarity}</span>
-          </header>
-          <footer>
-            <span class="price">${priceLabel}</span>
-            <button data-action="buy-shop" data-name="${item.name}">Kaufen</button>
-          </footer>
-        </article>
-      `;
-    })
-    .join("");
-}
-
-function renderThemes() {
-  const activeTheme = themeCatalog.find((theme) => theme.id === state.activeTheme) || themeCatalog[0];
-  document.getElementById("active-theme-label").textContent = activeTheme.name;
-  document.getElementById("theme-list").innerHTML = themeCatalog
-    .map(
-      (theme) => `
-        <article class="theme-option">
-          <div>
-            <strong>${theme.name}</strong>
-            <div class="muted">${theme.price} · ${theme.bonus}</div>
-          </div>
-          <button class="theme-swatch" aria-label="${theme.name}" data-action="theme" data-id="${theme.id}">
-            <span style="background:${theme.colors[0]}"></span>
-            <span style="background:${theme.colors[1]}"></span>
-          </button>
-        </article>
-      `,
-    )
-    .join("");
-}
-
-function renderLeaderboard() {
-  const rows = leaderboard.map((row) => [...row]);
-  rows[3][1] = Math.round(netWorth());
-  rows.sort((a, b) => b[1] - a[1]);
-  document.getElementById("leaderboard").innerHTML = rows
-    .map((row, index) => `<li><strong>#${index + 1} ${row[0]}</strong><span>${euro(row[1])}</span></li>`)
-    .join("");
-}
-
-function applyTheme() {
-  document.body.className = "";
-  const theme = themeCatalog.find((item) => item.id === state.activeTheme);
-  if (theme && theme.className) document.body.classList.add(theme.className);
-}
-
-function renderActiveTab() {
-  document.querySelectorAll(".tab-page").forEach((page) => page.classList.remove("active"));
-  document.querySelectorAll(".bottom-nav button").forEach((button) => button.classList.remove("active"));
-  document.getElementById("tab-" + state.activeTab).classList.add("active");
-  document.querySelector(`[data-tab="${state.activeTab}"]`).classList.add("active");
-  document.getElementById("screen-title").textContent = {
-    stocks: "Aktien",
-    realestate: "Immobilien",
-    etfs: "ETFs",
-    shop: "Shop",
-    profile: "Profil",
-  }[state.activeTab];
-}
-
-function render() {
-  updateWallet();
-  renderActiveTab();
-  renderStocks();
-  renderEtfs();
-  renderRules();
-  renderProperties();
-  renderEvents();
-  renderShop();
-  renderThemes();
-  renderLeaderboard();
-  applyTheme();
-  document.getElementById("premium-toggle").checked = state.premium;
-  document.getElementById("push-toggle").checked = state.pushEnabled;
-  saveState();
-}
-
-function buyAsset(assetId, silent = false) {
-  const asset = getAsset(assetId);
-  if (!asset) return false;
-  if (state.cash < asset.price) {
-    if (!silent) notify("Nicht genug Kapital", "Baue Cash durch Mieten, ETFs oder Daily Rewards auf.");
-    return false;
+function playSound(type) {
+  try {
+    audioContext = audioContext || new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const settings = {
+      correct: [720, 0.055],
+      wrong: [180, 0.08],
+      flame: [980, 0.13],
+    }[type];
+    oscillator.frequency.value = settings[0];
+    oscillator.type = type === "flame" ? "sawtooth" : "sine";
+    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.05, audioContext.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + settings[1]);
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + settings[1] + 0.03);
+  } catch {
+    // Browsers can block audio until the first interaction; the quiz remains fully usable.
   }
-  state.cash -= asset.price;
-  asset.owned += 1;
-  addXp(8);
-  if (!silent) notify("Kauf ausgefuehrt", `${asset.name} wurde ins Portfolio gelegt.`);
-  return true;
 }
 
-function sellAsset(assetId, silent = false) {
-  const asset = getAsset(assetId);
-  if (!asset || asset.owned <= 0) {
-    if (!silent) notify("Kein Bestand", "Dieses Asset ist aktuell nicht im Portfolio.");
-    return false;
-  }
-  state.cash += asset.price;
-  asset.owned -= 1;
-  addXp(7);
-  if (!silent) notify("Verkauf ausgefuehrt", `${asset.name} wurde verkauft.`);
-  return true;
+function notify(title, message) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `<strong>${title}</strong><span>${message}</span>`;
+  $("#toast-stack").appendChild(toast);
+  setTimeout(() => toast.remove(), 3600);
 }
 
-function moveMarket(forceCrash = false) {
-  [...state.stocks, ...state.etfs].forEach((asset) => {
-    asset.prev = asset.price;
-    const shockChance = asset.volatility > 0.04 ? 0.08 : 0.03;
-    const shock = forceCrash
-      ? -0.22 - Math.random() * 0.18
-      : Math.random() < shockChance
-        ? (Math.random() > 0.5 ? 1 : -1) * (0.1 + Math.random() * 0.28)
-        : 0;
-    const drift = (Math.random() - 0.48) * asset.volatility;
-    asset.price = Math.max(2, asset.price * (1 + drift + shock));
-
-    const tickChange = ((asset.price - asset.prev) / asset.prev) * 100;
-    if (Math.abs(tickChange) > 12) {
-      notify(
-        tickChange > 0 ? "Starke Kursbewegung" : "Crash-Signal",
-        `${asset.name}: ${tickChange > 0 ? "+" : ""}${tickChange.toFixed(1)}%`,
-        true,
-      );
-    }
-  });
-  runAutoTrader();
-  addXp(1);
-  render();
+function resetProgress() {
+  progress = { history: [], bestScore: 0, bestTime: 0, bestStreak: 0 };
+  saveProgress();
+  renderProgress();
+  notify("Fortschritt gelöscht", "Die lokalen Bestleistungen wurden zurückgesetzt.");
 }
 
-function runAutoTrader() {
-  state.rules
-    .filter((rule) => rule.active)
-    .forEach((rule) => {
-      const asset = getAsset(rule.assetId);
-      if (!asset) return;
-      const anchor = rule.anchorPrice || asset.prev || asset.price;
-      const move = ((asset.price - anchor) / anchor) * 100;
-      const triggered =
-        (rule.condition === "gain" && move >= rule.value) ||
-        (rule.condition === "loss" && move <= -rule.value) ||
-        (rule.condition === "above" && asset.price >= rule.value) ||
-        (rule.condition === "below" && asset.price <= rule.value);
-
-      if (!triggered) return;
-      const success = rule.action === "buy" ? buyAsset(asset.id, true) : sellAsset(asset.id, true);
-      rule.anchorPrice = asset.price;
-      if (success) {
-        notify(
-          "Auto-Trader ausgeloest",
-          `${asset.name}: Regel ${conditionLabel(rule)} hat ${rule.action === "buy" ? "gekauft" : "verkauft"}.`,
-          true,
-        );
-      }
-    });
-}
-
-function addRule() {
-  const maxRules = state.premium ? 8 : 3;
-  const activeRules = state.rules.filter((rule) => rule.active).length;
-  const assetId = document.getElementById("rule-asset").value;
-  const asset = getAsset(assetId);
-  const rule = {
-    id: "rule-" + Date.now(),
-    assetId,
-    condition: document.getElementById("rule-condition").value,
-    value: Number(document.getElementById("rule-value").value || 1),
-    action: document.getElementById("rule-action").value,
-    active: activeRules < maxRules,
-    anchorPrice: asset ? asset.price : 0,
-  };
-  state.rules.unshift(rule);
-  notify("Regel angelegt", rule.active ? "Auto-Trader-Regel ist aktiv." : "Limit erreicht: Regel wurde pausiert angelegt.");
-  render();
-}
-
-function toggleRule(ruleId, checked) {
-  const maxRules = state.premium ? 8 : 3;
-  const activeRules = state.rules.filter((rule) => rule.active).length;
-  const rule = state.rules.find((item) => item.id === ruleId);
-  if (!rule) return;
-  if (checked && !rule.active && activeRules >= maxRules) {
-    notify("Regel-Limit erreicht", "Premium-Spieler koennen mehr Regeln gleichzeitig aktivieren.");
-    render();
-    return;
-  }
-  const asset = getAsset(rule.assetId);
-  rule.active = checked;
-  rule.anchorPrice = asset ? asset.price : rule.anchorPrice;
-  render();
-}
-
-function buyOrUpgradeProperty(id, upgrade = false) {
-  const property = state.properties.find((item) => item.id === id);
-  if (!property) return;
-  const cost = upgrade ? Math.round(property.cost * 0.38 * property.level) : property.cost;
-  if (state.cash < cost) {
-    notify("Nicht genug Kapital", "Immobilien brauchen Geduld und stabile Cashflows.");
-    return;
-  }
-  state.cash -= cost;
-  property.owned = true;
-  if (upgrade) property.level += 1;
-  addXp(upgrade ? 18 : 28);
-  notify(upgrade ? "Immobilie verbessert" : "Immobilie gekauft", `${property.name} generiert jetzt hoehere Miete.`, true);
-  render();
-}
-
-function paintProperty(id) {
-  const property = state.properties.find((item) => item.id === id);
-  if (!property || !property.owned) {
-    notify("Erst kaufen", "Farben koennen nur auf eigene Immobilien angewendet werden.");
-    return;
-  }
-  const options = [
-    { name: "Graphite", color: "#d8dde4", cost: 120, type: "cash" },
-    { name: "Diamond Blue", color: "#d7f7ff", cost: 18, type: "gems" },
-    { name: "Event Gold", color: "#ead6a4", cost: 0, type: "event" },
-  ];
-  const option = options[Math.floor(Math.random() * options.length)];
-  if (option.type === "cash" && state.cash < option.cost) return notify("Nicht genug EUR", "Normale Farben kosten Euro.");
-  if (option.type === "gems" && state.gems < option.cost) return notify("Nicht genug Diamanten", "Seltene Farben kosten Diamanten.");
-  if (option.type === "cash") state.cash -= option.cost;
-  if (option.type === "gems") state.gems -= option.cost;
-  property.paint = option.color;
-  property.paintName = option.name;
-  addXp(10);
-  notify("Farbe angewendet", `${property.name} nutzt jetzt ${option.name}.`);
-  render();
-}
-
-function collectRent() {
-  const rent = state.properties.reduce((total, property) => {
-    if (!property.owned) return total;
-    return total + Math.round(property.rent * property.level * paintBonus(property.paintName));
-  }, 0);
-  state.cash += rent;
-  addXp(12);
-  notify("Miete eingegangen", `${euro(rent)} wurden deinem Konto gutgeschrieben.`, true);
-  render();
-}
-
-function claimDaily() {
-  const cashReward = 120 + Math.round(Math.random() * 260);
-  const gemReward = Math.random() < 0.38 ? 1 + Math.floor(Math.random() * 4) : 0;
-  state.cash += cashReward;
-  state.gems += gemReward;
-  addXp(16);
-  notify("Daily Chance", `${euro(cashReward)}${gemReward ? " und " + gemReward + " Diamanten" : ""} erhalten.`, true);
-  render();
-}
-
-function buyShopItem(name) {
-  const item = shopItems.find((entry) => entry.name === name);
-  if (!item) return;
-  const price = dynamicPrice(item);
-  if (item.priceType === "cash") {
-    if (state.cash < price) return notify("Nicht genug EUR", "Dieses Item kann auch spaeter gekauft werden.");
-    state.cash -= price;
-  }
-  if (item.priceType === "gems") {
-    if (state.gems < price) return notify("Nicht genug Diamanten", "Diamanten gibt es auch durch Missionen, Events und Codes.");
-    state.gems -= Math.round(price);
-  }
-  if (item.priceType === "real") {
-    state.gems += 8;
-    notify("Echtgeld-Kauf simuliert", "Im Prototyp wird kein echter Kauf ausgefuehrt; du erhaeltst 8 Bonus-Diamanten.");
-  } else {
-    addXp(10);
-    notify("Shop-Kauf", `${item.name} wurde freigeschaltet.`);
-  }
-  render();
-}
-
-function onlineAction(action) {
-  if (action === "send-cash") {
-    const amount = Math.min(100, Math.floor(state.cash * 0.08));
-    state.cash -= amount;
-    addXp(8);
-    notify("Geld gesendet", `${euro(amount)} an einen Clan-Kontakt ueberwiesen.`);
-  }
-  if (action === "trade-item") {
-    state.gems += 2;
-    addXp(9);
-    notify("Tausch abgeschlossen", "Ein seltenes Kosmetik-Item wurde gegen 2 Diamanten getauscht.");
-  }
-  if (action === "risk-steal") {
-    const success = Math.random() > 0.46;
-    const amount = 90 + Math.round(Math.random() * 180);
-    state.cash += success ? amount : -Math.min(state.cash, amount);
-    addXp(success ? 12 : 4);
-    notify(success ? "Coup gelungen" : "Coup gescheitert", success ? `${euro(amount)} erbeutet.` : `${euro(amount)} Strafe gezahlt.`, true);
-  }
-  if (action === "join-clan") {
-    state.cash += 160;
-    addXp(14);
-    notify("Clan Bonus", "Dein Clan zahlt einen kleinen Wochenbonus.");
-  }
-  render();
-}
-
-document.querySelector(".bottom-nav").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-tab]");
+$("#setup-form").addEventListener("submit", startRound);
+$("#answer-form").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-answer]");
   if (!button) return;
-  state.activeTab = button.dataset.tab;
-  render();
+  document.querySelectorAll(".choice-button").forEach((item) => item.classList.remove("selected"));
+  button.classList.add("selected");
+  submitAnswer(button.dataset.answer);
 });
-
-document.body.addEventListener("click", (event) => {
-  const target = event.target.closest("[data-action], #simulate-crash, #collect-rent, #claim-daily, #add-rule, #send-cash, #trade-item, #risk-steal, #join-clan");
-  if (!target) return;
-
-  if (target.id === "simulate-crash") return moveMarket(true);
-  if (target.id === "collect-rent") return collectRent();
-  if (target.id === "claim-daily") return claimDaily();
-  if (target.id === "add-rule") return addRule();
-  if (["send-cash", "trade-item", "risk-steal", "join-clan"].includes(target.id)) return onlineAction(target.id);
-
-  const { action, id, category, name } = target.dataset;
-  if (action === "buy-asset") buyAsset(id);
-  if (action === "sell-asset") sellAsset(id);
-  if (action === "buy-property") buyOrUpgradeProperty(id, false);
-  if (action === "upgrade-property") buyOrUpgradeProperty(id, true);
-  if (action === "paint-property") paintProperty(id);
-  if (action === "shop-category") {
-    state.selectedShopCategory = category;
-    render();
-  }
-  if (action === "buy-shop") buyShopItem(name);
-  if (action === "theme") {
-    const theme = themeCatalog.find((entry) => entry.id === id);
-    if (!theme) return;
-    state.activeTheme = theme.id;
-    if (!state.ownedThemes.includes(theme.id)) state.ownedThemes.push(theme.id);
-    notify("Design Edition aktiviert", `${theme.name} passt das gesamte UI an.`);
-    render();
-  }
+$("#answer-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitAnswer($("#text-answer").value);
 });
-
-document.body.addEventListener("change", async (event) => {
-  const target = event.target;
-  if (target.id === "premium-toggle") {
-    state.premium = target.checked;
-    notify("Premium-Modus", state.premium ? "Mehr Auto-Trader-Regeln sind aktivierbar." : "Premium-Komfort deaktiviert.");
-    render();
-  }
-  if (target.id === "push-toggle") {
-    state.pushEnabled = target.checked;
-    if (state.pushEnabled && "Notification" in window && Notification.permission === "default") {
-      await Notification.requestPermission();
-    }
-    notify("Push-Benachrichtigungen", state.pushEnabled ? "Optionale Meldungen sind aktiv." : "Push ist deaktiviert.");
-    render();
-  }
-  if (target.dataset.action === "toggle-rule") {
-    toggleRule(target.dataset.id, target.checked);
-  }
+$("#why-button").addEventListener("click", () => $("#explanation-box").classList.toggle("hidden"));
+$("#next-question").addEventListener("click", nextQuestion);
+$("#admin-code-form").addEventListener("submit", unlockAdmin);
+$("#new-question-form").addEventListener("submit", addAdminQuestion);
+$("#admin-question-list").addEventListener("click", (event) => {
+  const button = event.target.closest('[data-action="save-question"]');
+  if (!button) return;
+  saveAdminQuestion(button.dataset.id);
 });
+$("#lock-admin").addEventListener("click", () => $("#admin-panel").classList.add("hidden"));
+$("#quit-round").addEventListener("click", () => {
+  clearInterval(timerId);
+  round = null;
+  showScreen("setup-screen");
+});
+$("#play-again").addEventListener("click", (event) => startRound(event));
+$("#back-to-setup").addEventListener("click", () => showScreen("setup-screen"));
+$("#reset-progress").addEventListener("click", resetProgress);
 
-render();
-setInterval(() => moveMarket(false), 5000);
-setInterval(() => renderShop(), 20000);
+renderProgress();
+
+window.__quizDebug = { questions, getQuestionPool, normalize };
