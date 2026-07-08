@@ -379,6 +379,19 @@ input[type="radio"] {
   width: 100%;
 }
 
+.admin-code-form input:focus,
+.admin-new-form input:focus,
+.admin-new-form select:focus,
+.admin-new-form textarea:focus,
+.admin-question input:focus,
+.admin-question select:focus,
+.admin-question textarea:focus,
+.text-answer:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  outline: none;
+}
+
 .admin-new-form {
   box-shadow: none;
   display: grid;

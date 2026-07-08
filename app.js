@@ -23,7 +23,7 @@ const DIFFICULTIES = ["leicht", "mittel", "schwer"];
 const COLOR_THEMES = [
   { id: "wald", name: "Waldgrün", accent: "#256f68", accent2: "#6d91ff", heroEnd: "#234d74" },
   { id: "meer", name: "Meerblau", accent: "#1d6fa5", accent2: "#5fd4c8", heroEnd: "#16466d" },
-  { id: "lila", name: "Lila", accent: "#6d4bc3", accent2: "#ef8bc8", heroEnd: "#3b2f74" },
+  { id: "lila", name: "Lila", accent: "#8b5cf6", accent2: "#ec4899", heroEnd: "#6d28d9" },
   { id: "pink", name: "Pink", accent: "#c0447a", accent2: "#ffad66", heroEnd: "#78305d" },
   { id: "orange", name: "Orange", accent: "#c76a1d", accent2: "#f3c969", heroEnd: "#7a431b" },
   { id: "anthrazit", name: "Anthrazit", accent: "#334155", accent2: "#38bdf8", heroEnd: "#111827" },
