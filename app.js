@@ -479,6 +479,11 @@ function selectColorTheme(themeId) {
   notify("Farbe geändert", `${selectedColorTheme().name} ist jetzt aktiv.`);
 }
 
+function closeColorSettingsPanel() {
+  $("#color-settings-panel").classList.add("hidden");
+  $("#color-settings-toggle").setAttribute("aria-expanded", "false");
+}
+
 function inferTopic(prompt, answer) {
   const text = normalize(prompt + " " + answer);
   if (/bakter|antibiotika|zellwand|resistenz|sporen|giftstoffe|toxine|biofilme|plasmide|horizontal|hitze/.test(text)) return "bakterien";
@@ -576,6 +581,7 @@ function startRound(event) {
     answered: false,
   };
 
+  closeColorSettingsPanel();
   showScreen("quiz-screen");
   renderQuestion();
 }
