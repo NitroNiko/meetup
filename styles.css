@@ -122,6 +122,42 @@ button {
   margin-top: 14px;
 }
 
+.ad-free-form {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 9px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.ad-free-form label {
+  font-weight: 820;
+}
+
+.ad-free-form p {
+  margin: 0;
+}
+
+.ad-free-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+}
+
+.ad-free-row input {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  padding: 12px 14px;
+}
+
+.ad-free-row input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  outline: none;
+}
+
 .color-option {
   align-items: center;
   background: rgba(255, 255, 255, 0.78);
@@ -749,6 +785,109 @@ input[type="radio"] {
   z-index: 20;
 }
 
+.ad-break {
+  align-items: center;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.78) 34%, rgba(15, 23, 42, 0.44)),
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.18), rgba(15, 23, 42, 0.18));
+  backdrop-filter: blur(10px);
+  display: grid;
+  inset: 0;
+  justify-items: center;
+  overflow: hidden;
+  padding: 24px;
+  position: fixed;
+  z-index: 100;
+}
+
+.ad-stage {
+  height: 180px;
+  left: 0;
+  overflow: visible;
+  position: absolute;
+  right: 0;
+  top: 16%;
+}
+
+.jumping-person {
+  animation: hop-across 10s linear both;
+  height: 118px;
+  position: absolute;
+  width: 74px;
+}
+
+.jumping-person span {
+  display: block;
+  position: absolute;
+}
+
+.person-head {
+  background: #ffd7bf;
+  border: 3px solid var(--accent);
+  border-radius: 999px;
+  height: 34px;
+  left: 20px;
+  top: 0;
+  width: 34px;
+}
+
+.person-body {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-radius: 20px 20px 24px 24px;
+  height: 50px;
+  left: 16px;
+  top: 36px;
+  width: 42px;
+}
+
+.person-leg {
+  background: var(--accent);
+  border-radius: 999px;
+  height: 38px;
+  top: 78px;
+  width: 11px;
+}
+
+.person-leg.left {
+  animation: leg-left 360ms ease-in-out infinite alternate;
+  left: 24px;
+  transform-origin: top center;
+}
+
+.person-leg.right {
+  animation: leg-right 360ms ease-in-out infinite alternate;
+  right: 24px;
+  transform-origin: top center;
+}
+
+.ad-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  max-width: 430px;
+  padding: 26px;
+  text-align: center;
+  width: min(100%, 430px);
+}
+
+.ad-card h2 {
+  font-size: clamp(1.8rem, 6vw, 3rem);
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin: 0 0 12px;
+}
+
+.ad-card p:last-child {
+  color: var(--muted);
+  margin: 0;
+}
+
+.ad-card strong {
+  color: var(--accent);
+  font-size: 1.35em;
+}
+
 .toast {
   animation: slide-in 260ms ease both;
   background: rgba(21, 33, 31, 0.94);
@@ -779,6 +918,51 @@ input[type="radio"] {
   }
 }
 
+@keyframes hop-across {
+  0% {
+    transform: translateX(-90px) translateY(24px) rotate(-7deg);
+  }
+  12% {
+    transform: translateX(8vw) translateY(-18px) rotate(7deg);
+  }
+  25% {
+    transform: translateX(22vw) translateY(20px) rotate(-8deg);
+  }
+  38% {
+    transform: translateX(36vw) translateY(-22px) rotate(8deg);
+  }
+  52% {
+    transform: translateX(52vw) translateY(20px) rotate(-7deg);
+  }
+  66% {
+    transform: translateX(66vw) translateY(-18px) rotate(7deg);
+  }
+  82% {
+    transform: translateX(82vw) translateY(22px) rotate(-8deg);
+  }
+  100% {
+    transform: translateX(calc(100vw + 90px)) translateY(-6px) rotate(6deg);
+  }
+}
+
+@keyframes leg-left {
+  from {
+    transform: rotate(24deg);
+  }
+  to {
+    transform: rotate(-22deg);
+  }
+}
+
+@keyframes leg-right {
+  from {
+    transform: rotate(-22deg);
+  }
+  to {
+    transform: rotate(24deg);
+  }
+}
+
 @media (max-width: 760px) {
   body {
     padding: 0;
@@ -793,6 +977,10 @@ input[type="radio"] {
   .settings-toggle {
     right: 14px;
     top: 14px;
+  }
+
+  .ad-free-row {
+    grid-template-columns: 1fr;
   }
 
   .color-settings-panel {

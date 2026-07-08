@@ -1,7 +1,13 @@
 const STORAGE_KEY = "immunoQuizProgress";
 const QUESTION_STORAGE_KEY = "immunoQuizQuestionBankV2";
 const COLOR_THEME_STORAGE_KEY = "immunoQuizColorTheme";
+const AD_NEXT_STORAGE_KEY = "immunoQuizNextAdAt";
+const AD_FREE_UNTIL_STORAGE_KEY = "immunoQuizAdFreeUntil";
 const ADMIN_CODE = "1234";
+const AD_FREE_CODE = "6767";
+const AD_INTERVAL_MS = 10 * 60 * 1000;
+const AD_DURATION_MS = 10 * 1000;
+const AD_FREE_MS = 30 * 60 * 1000;
 const TOPIC_LABELS = {
   antikoerper: "Antikörper",
   bakterien: "Bakterien",
@@ -321,6 +327,8 @@ let progress = loadProgress();
 let selectedColorThemeId = loadColorThemeId();
 let round = null;
 let timerId = null;
+let adTimerId = null;
+let adCountdownId = null;
 let audioContext = null;
 
 const $ = (selector) => document.querySelector(selector);
@@ -478,6 +486,99 @@ function selectColorTheme(themeId) {
   if ($("#results-screen").classList.contains("active")) renderWave($("#results-wave"));
   closeColorSettingsPanel();
   notify("Farbe geändert", `${selectedColorTheme().name} ist jetzt aktiv.`);
+}
+
+function storedTime(key) {
+  return Number(localStorage.getItem(key) || 0);
+}
+
+function setStoredTime(key, value) {
+  localStorage.setItem(key, String(value));
+}
+
+function adFreeUntil() {
+  return storedTime(AD_FREE_UNTIL_STORAGE_KEY);
+}
+
+function isAdFreeActive() {
+  return adFreeUntil() > Date.now();
+}
+
+function formatClockTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function updateAdFreeStatus() {
+  const status = $("#ad-free-status");
+  if (!status) return;
+  if (isAdFreeActive()) {
+    status.textContent = `Werbefrei aktiv bis ${formatClockTime(adFreeUntil())}.`;
+    return;
+  }
+  status.textContent = "Code 6767: 30 Minuten keine Werbepause.";
+}
+
+function ensureNextAdTime() {
+  const nextAdAt = storedTime(AD_NEXT_STORAGE_KEY);
+  if (!nextAdAt) setStoredTime(AD_NEXT_STORAGE_KEY, Date.now() + AD_INTERVAL_MS);
+}
+
+function scheduleAdBreak() {
+  clearTimeout(adTimerId);
+  updateAdFreeStatus();
+  ensureNextAdTime();
+
+  if (isAdFreeActive()) {
+    adTimerId = setTimeout(scheduleAdBreak, Math.min(adFreeUntil() - Date.now(), AD_INTERVAL_MS));
+    return;
+  }
+
+  const delay = Math.max(0, storedTime(AD_NEXT_STORAGE_KEY) - Date.now());
+  adTimerId = setTimeout(showAdBreak, delay);
+}
+
+function showAdBreak() {
+  if (isAdFreeActive()) {
+    setStoredTime(AD_NEXT_STORAGE_KEY, adFreeUntil() + AD_INTERVAL_MS);
+    scheduleAdBreak();
+    return;
+  }
+
+  const overlay = $("#ad-break");
+  let remaining = Math.ceil(AD_DURATION_MS / 1000);
+  $("#ad-countdown").textContent = remaining;
+  overlay.classList.remove("hidden");
+
+  clearInterval(adCountdownId);
+  adCountdownId = setInterval(() => {
+    remaining -= 1;
+    $("#ad-countdown").textContent = Math.max(0, remaining);
+    if (remaining <= 0) finishAdBreak();
+  }, 1000);
+}
+
+function finishAdBreak() {
+  clearInterval(adCountdownId);
+  $("#ad-break").classList.add("hidden");
+  setStoredTime(AD_NEXT_STORAGE_KEY, Date.now() + AD_INTERVAL_MS);
+  scheduleAdBreak();
+}
+
+function redeemAdFreeCode(event) {
+  event.preventDefault();
+  const input = $("#ad-free-code");
+  if (input.value.trim() !== AD_FREE_CODE) {
+    notify("Code nicht korrekt", "Der Werbefrei-Code lautet nicht so.");
+    return;
+  }
+
+  const until = Date.now() + AD_FREE_MS;
+  setStoredTime(AD_FREE_UNTIL_STORAGE_KEY, until);
+  setStoredTime(AD_NEXT_STORAGE_KEY, until + AD_INTERVAL_MS);
+  input.value = "";
+  updateAdFreeStatus();
+  scheduleAdBreak();
+  notify("Werbefrei aktiviert", "30 Minuten lang kommt kein hüpfendes Männchen.");
 }
 
 function closeColorSettingsPanel() {
@@ -1042,6 +1143,7 @@ $("#color-palette").addEventListener("click", (event) => {
   if (!button) return;
   selectColorTheme(button.dataset.colorTheme);
 });
+$("#ad-free-form").addEventListener("submit", redeemAdFreeCode);
 $("#answer-form").addEventListener("click", (event) => {
   const button = event.target.closest("[data-answer]");
   if (!button) return;
@@ -1075,5 +1177,6 @@ $("#reset-progress").addEventListener("click", resetProgress);
 applyColorTheme();
 renderColorPalette();
 renderProgress();
+scheduleAdBreak();
 
-window.__quizDebug = { questions, getQuestionPool, normalize, COLOR_THEMES };
+window.__quizDebug = { questions, getQuestionPool, normalize, COLOR_THEMES, showAdBreak, scheduleAdBreak };

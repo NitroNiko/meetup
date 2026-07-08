@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ImmunoQuiz Lernlabor</title>
-    <link rel="stylesheet" href="styles.css?v=color-settings-2" />
+    <link rel="stylesheet" href="styles.css?v=ad-break-1" />
   </head>
   <body>
     <main class="app-shell" id="app">
@@ -28,6 +28,14 @@
         </div>
         <p class="muted">Wähle die Farbe für Buttons, Icons und Markierungen.</p>
         <div class="color-palette" id="color-palette"></div>
+        <form id="ad-free-form" class="ad-free-form">
+          <label for="ad-free-code">Werbefrei-Code</label>
+          <div class="ad-free-row">
+            <input id="ad-free-code" type="password" inputmode="numeric" autocomplete="off" placeholder="6767" />
+            <button class="primary-button" type="submit">Einlösen</button>
+          </div>
+          <p id="ad-free-status" class="muted">Code 6767: 30 Minuten keine Werbepause.</p>
+        </form>
       </section>
 
       <section class="hero">
@@ -252,6 +260,22 @@
         </div>
       </section>
     </main>
+
+    <section id="ad-break" class="ad-break hidden" aria-live="assertive" aria-labelledby="ad-break-title">
+      <div class="ad-stage" aria-hidden="true">
+        <div class="jumping-person">
+          <span class="person-head"></span>
+          <span class="person-body"></span>
+          <span class="person-leg left"></span>
+          <span class="person-leg right"></span>
+        </div>
+      </div>
+      <article class="ad-card">
+        <p class="eyebrow">Kurze Werbepause</p>
+        <h2 id="ad-break-title">Das komische Männchen hüpft!</h2>
+        <p>Für <strong id="ad-countdown">10</strong> Sekunden ist die App gesperrt.</p>
+      </article>
+    </section>
 
     <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
     <script src="app.js"></script>
