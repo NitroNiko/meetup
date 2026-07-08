@@ -316,8 +316,8 @@ input[type="radio"] {
 }
 
 .primary-button {
-  background: linear-gradient(135deg, var(--accent), #244d74);
-  box-shadow: 0 14px 26px rgba(37, 111, 104, 0.25);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 14px 26px rgba(var(--accent-rgb), 0.25);
   color: #fff;
   padding: 13px 18px;
 }
