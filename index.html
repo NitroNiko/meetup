@@ -8,6 +8,28 @@
   </head>
   <body>
     <main class="app-shell" id="app">
+      <button
+        class="settings-toggle"
+        id="color-settings-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="color-settings-panel"
+        aria-label="Farben einstellen"
+      >
+        ⚙️
+      </button>
+
+      <section id="color-settings-panel" class="color-settings-panel hidden" aria-labelledby="color-settings-title">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Design</p>
+            <h2 id="color-settings-title">Farben einstellen</h2>
+          </div>
+        </div>
+        <p class="muted">Wähle die Farbe für Buttons, Icons und Markierungen.</p>
+        <div class="color-palette" id="color-palette"></div>
+      </section>
+
       <section class="hero">
         <div>
           <p class="eyebrow">Schulfreundliches Lernquiz</p>

@@ -1,5 +1,6 @@
 const STORAGE_KEY = "immunoQuizProgress";
 const QUESTION_STORAGE_KEY = "immunoQuizQuestionBankV2";
+const COLOR_THEME_STORAGE_KEY = "immunoQuizColorTheme";
 const ADMIN_CODE = "1234";
 const TOPIC_LABELS = {
   antikoerper: "Antikörper",
@@ -19,6 +20,14 @@ const TYPE_LABELS = {
   choice: "Multiple-Choice-Frage",
 };
 const DIFFICULTIES = ["leicht", "mittel", "schwer"];
+const COLOR_THEMES = [
+  { id: "wald", name: "Waldgrün", accent: "#256f68", accent2: "#6d91ff", heroEnd: "#234d74" },
+  { id: "meer", name: "Meerblau", accent: "#1d6fa5", accent2: "#5fd4c8", heroEnd: "#16466d" },
+  { id: "lila", name: "Lila", accent: "#6d4bc3", accent2: "#ef8bc8", heroEnd: "#3b2f74" },
+  { id: "pink", name: "Pink", accent: "#c0447a", accent2: "#ffad66", heroEnd: "#78305d" },
+  { id: "orange", name: "Orange", accent: "#c76a1d", accent2: "#f3c969", heroEnd: "#7a431b" },
+  { id: "anthrazit", name: "Anthrazit", accent: "#334155", accent2: "#38bdf8", heroEnd: "#111827" },
+];
 
 const questionRows = (difficulty, answer, prompts) => prompts.map((prompt) => [difficulty, prompt, answer]);
 const inputQuestionRows = (difficulty, entries) => entries.map(([prompt, answer]) => [difficulty, prompt, answer]);
@@ -308,6 +317,7 @@ const rawQuestions = [
 let questionBank = loadQuestionBank();
 let questions = buildQuestionSet();
 let progress = loadProgress();
+let selectedColorThemeId = loadColorThemeId();
 let round = null;
 let timerId = null;
 let audioContext = null;
@@ -410,6 +420,62 @@ function refreshQuestionSet() {
 
 function saveProgress() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+}
+
+function loadColorThemeId() {
+  const stored = localStorage.getItem(COLOR_THEME_STORAGE_KEY);
+  return COLOR_THEMES.some((theme) => theme.id === stored) ? stored : COLOR_THEMES[0].id;
+}
+
+function selectedColorTheme() {
+  return COLOR_THEMES.find((theme) => theme.id === selectedColorThemeId) || COLOR_THEMES[0];
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  const value = parseInt(normalized, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function applyColorTheme() {
+  const theme = selectedColorTheme();
+  const [r, g, b] = hexToRgb(theme.accent);
+  const root = document.documentElement;
+  root.style.setProperty("--accent", theme.accent);
+  root.style.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
+  root.style.setProperty("--accent-2", theme.accent2);
+  root.style.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.1)`);
+  root.style.setProperty("--hero-start", colorWithAlpha(theme.accent, 0.95));
+  root.style.setProperty("--hero-end", colorWithAlpha(theme.heroEnd, 0.92));
+}
+
+function colorWithAlpha(hex, alpha) {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function renderColorPalette() {
+  const palette = $("#color-palette");
+  if (!palette) return;
+  palette.innerHTML = COLOR_THEMES.map(
+    (theme) => `
+      <button class="color-option ${theme.id === selectedColorThemeId ? "active" : ""}" type="button" data-color-theme="${theme.id}">
+        <span class="color-swatch" style="--swatch-a:${theme.accent}; --swatch-b:${theme.accent2}"></span>
+        <span>${theme.name}</span>
+      </button>
+    `,
+  ).join("");
+}
+
+function selectColorTheme(themeId) {
+  if (!COLOR_THEMES.some((theme) => theme.id === themeId)) return;
+  selectedColorThemeId = themeId;
+  localStorage.setItem(COLOR_THEME_STORAGE_KEY, selectedColorThemeId);
+  applyColorTheme();
+  renderColorPalette();
+  renderProgress();
+  if ($("#results-screen").classList.contains("active")) renderWave($("#results-wave"));
+  notify("Farbe geändert", `${selectedColorTheme().name} ist jetzt aktiv.`);
 }
 
 function inferTopic(prompt, answer) {
@@ -908,9 +974,9 @@ function renderWave(svg) {
   const lastPoint = points[points.length - 1];
   const area = `${path} L ${lastPoint[0].toFixed(1)} 105 L ${points[0][0].toFixed(1)} 105 Z`;
   svg.innerHTML = `
-    <path d="${area}" fill="rgba(37, 111, 104, 0.12)"></path>
-    <path d="${path}" fill="none" stroke="#256f68" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
-    ${points.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#6d91ff"></circle>`).join("")}
+    <path d="${area}" fill="var(--accent-soft)"></path>
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+    ${points.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="var(--accent-2)"></circle>`).join("")}
   `;
 }
 
@@ -957,6 +1023,17 @@ function resetProgress() {
 }
 
 $("#setup-form").addEventListener("submit", startRound);
+$("#color-settings-toggle").addEventListener("click", () => {
+  const panel = $("#color-settings-panel");
+  const isOpen = !panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", isOpen);
+  $("#color-settings-toggle").setAttribute("aria-expanded", String(!isOpen));
+});
+$("#color-palette").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-color-theme]");
+  if (!button) return;
+  selectColorTheme(button.dataset.colorTheme);
+});
 $("#answer-form").addEventListener("click", (event) => {
   const button = event.target.closest("[data-answer]");
   if (!button) return;
@@ -987,6 +1064,8 @@ $("#play-again").addEventListener("click", (event) => startRound(event));
 $("#back-to-setup").addEventListener("click", () => showScreen("setup-screen"));
 $("#reset-progress").addEventListener("click", resetProgress);
 
+applyColorTheme();
+renderColorPalette();
 renderProgress();
 
-window.__quizDebug = { questions, getQuestionPool, normalize };
+window.__quizDebug = { questions, getQuestionPool, normalize, COLOR_THEMES };
