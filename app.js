@@ -461,7 +461,7 @@ function renderColorPalette() {
   palette.innerHTML = COLOR_THEMES.map(
     (theme) => `
       <button class="color-option ${theme.id === selectedColorThemeId ? "active" : ""}" type="button" data-color-theme="${theme.id}">
-        <span class="color-swatch" style="--swatch-a:${theme.accent}; --swatch-b:${theme.accent2}"></span>
+        <span class="palette-swatch" style="--swatch-a:${theme.accent}; --swatch-b:${theme.accent2}"></span>
         <span>${theme.name}</span>
       </button>
     `,
