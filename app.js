@@ -476,6 +476,7 @@ function selectColorTheme(themeId) {
   renderColorPalette();
   renderProgress();
   if ($("#results-screen").classList.contains("active")) renderWave($("#results-wave"));
+  closeColorSettingsPanel();
   notify("Farbe geändert", `${selectedColorTheme().name} ist jetzt aktiv.`);
 }
 
