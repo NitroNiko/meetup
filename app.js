@@ -515,7 +515,7 @@ function updateAdFreeStatus() {
     status.textContent = `Werbefrei aktiv bis ${formatClockTime(adFreeUntil())}.`;
     return;
   }
-  status.textContent = "Code 6767: 30 Minuten keine Werbepause.";
+  status.textContent = "Code 6767: 30 Minuten ohne Herr Holzmann.";
 }
 
 function ensureNextAdTime() {
@@ -578,7 +578,7 @@ function redeemAdFreeCode(event) {
   input.value = "";
   updateAdFreeStatus();
   scheduleAdBreak();
-  notify("Werbefrei aktiviert", "30 Minuten lang kommt kein hüpfendes Männchen.");
+  notify("Werbefrei aktiviert", "30 Minuten lang kommt Herr Holzmann nicht vorbei.");
 }
 
 function closeColorSettingsPanel() {
