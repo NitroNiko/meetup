@@ -4,10 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ImmunoQuiz Lernlabor</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='46'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css?v=ad-break-1" />
   </head>
   <body>
     <main class="app-shell" id="app">
+      <button
+        class="settings-toggle"
+        id="color-settings-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="color-settings-panel"
+        aria-label="Farben einstellen"
+      >
+        ⚙️
+      </button>
+
+      <section id="color-settings-panel" class="color-settings-panel hidden" aria-labelledby="color-settings-title">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Design</p>
+            <h2 id="color-settings-title">Farben einstellen</h2>
+          </div>
+        </div>
+        <p class="muted">Wähle die Farbe für Buttons, Icons und Markierungen.</p>
+        <div class="color-palette" id="color-palette"></div>
+        <form id="ad-free-form" class="ad-free-form">
+          <label for="ad-free-code">Werbefrei-Code</label>
+          <div class="ad-free-row">
+            <input id="ad-free-code" type="password" inputmode="numeric" autocomplete="off" placeholder="6767" />
+            <button class="primary-button" type="submit">Einlösen</button>
+          </div>
+          <p id="ad-free-status" class="muted">Code 6767: 30 Minuten ohne Herr Holzmann.</p>
+        </form>
+      </section>
+
       <section class="hero">
         <div>
           <p class="eyebrow">Schulfreundliches Lernquiz</p>
@@ -230,6 +261,22 @@
         </div>
       </section>
     </main>
+
+    <section id="ad-break" class="ad-break hidden" aria-live="assertive" aria-labelledby="ad-break-title">
+      <div class="ad-stage" aria-hidden="true">
+        <div class="jumping-person">
+          <span class="person-head"></span>
+          <span class="person-body"></span>
+          <span class="person-leg left"></span>
+          <span class="person-leg right"></span>
+        </div>
+      </div>
+      <article class="ad-card">
+        <p class="eyebrow">Kurze Werbepause</p>
+        <h2 id="ad-break-title">Herr Holzmann hüpft!</h2>
+        <p>„Ich hindere dich am Lernen.“ Für <strong id="ad-countdown">10</strong> Sekunden ist die App gesperrt.</p>
+      </article>
+    </section>
 
     <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
     <script src="app.js"></script>

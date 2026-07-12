@@ -1,6 +1,13 @@
 const STORAGE_KEY = "immunoQuizProgress";
-const QUESTION_STORAGE_KEY = "immunoQuizQuestionBank";
+const QUESTION_STORAGE_KEY = "immunoQuizQuestionBankV2";
+const COLOR_THEME_STORAGE_KEY = "immunoQuizColorTheme";
+const AD_NEXT_STORAGE_KEY = "immunoQuizNextAdAt";
+const AD_FREE_UNTIL_STORAGE_KEY = "immunoQuizAdFreeUntil";
 const ADMIN_CODE = "1234";
+const AD_FREE_CODE = "6767";
+const AD_INTERVAL_MS = 10 * 60 * 1000;
+const AD_DURATION_MS = 10 * 1000;
+const AD_FREE_MS = 30 * 60 * 1000;
 const TOPIC_LABELS = {
   antikoerper: "Antikörper",
   bakterien: "Bakterien",
@@ -19,115 +26,309 @@ const TYPE_LABELS = {
   choice: "Multiple-Choice-Frage",
 };
 const DIFFICULTIES = ["leicht", "mittel", "schwer"];
+const COLOR_THEMES = [
+  { id: "wald", name: "Waldgrün", accent: "#256f68", accent2: "#6d91ff", heroEnd: "#234d74" },
+  { id: "meer", name: "Meerblau", accent: "#1d6fa5", accent2: "#5fd4c8", heroEnd: "#16466d" },
+  { id: "lila", name: "Lila", accent: "#8b5cf6", accent2: "#ec4899", heroEnd: "#6d28d9" },
+  { id: "rosa", name: "Rosa", accent: "#ff7ab6", accent2: "#ffd1e5", heroEnd: "#ff9fcb" },
+  { id: "pink", name: "Pink", accent: "#c0447a", accent2: "#ffad66", heroEnd: "#78305d" },
+  { id: "orange", name: "Orange", accent: "#c76a1d", accent2: "#f3c969", heroEnd: "#7a431b" },
+  { id: "anthrazit", name: "Anthrazit", accent: "#334155", accent2: "#38bdf8", heroEnd: "#111827" },
+];
+
+const questionRows = (difficulty, answer, prompts) => prompts.map((prompt) => [difficulty, prompt, answer]);
+const inputQuestionRows = (difficulty, entries) => entries.map(([prompt, answer]) => [difficulty, prompt, answer]);
 
 const rawQuestions = [
-  ["leicht", "Können Viren nur in lebenden Zellen überleben?", "ja"],
-  ["leicht", "Sind Bakterien größer als Viren?", "ja"],
-  ["leicht", "Wie nennt man die Abwehrzellen, die Erreger fressen?", "fresszellen"],
-  ["leicht", "Kann man sich durch ungewaschene Hände anstecken?", "ja"],
-  ["leicht", "Wie nennt man die Krankheit durch Influenzaviren?", "grippe"],
-  ["leicht", "Ist Fieber eine normale Abwehrreaktion?", "ja"],
-  ["leicht", "Wie nennt man Erreger, die Krankheiten verursachen?", "krankheitserreger"],
-  ["leicht", "Können Bakterien nützlich sein?", "ja"],
-  ["leicht", "Wie nennt man die Übertragung durch Niesen?", "tröpfcheninfektion"],
-  ["leicht", "Kann man sich durch Küssen anstecken?", "ja"],
-  ["leicht", "Wie heißt die erste Schutzschicht des Körpers?", "haut"],
-  ["leicht", "Können Viren Grippe auslösen?", "ja"],
-  ["leicht", "Wie nennt man die Zeit zwischen Ansteckung und Symptomen?", "inkubationszeit"],
-  ["leicht", "Kann man sich durch verunreinigtes Wasser anstecken?", "ja"],
-  ["leicht", "Wie heißen die Abwehrstoffe der B-Zellen?", "antikörper"],
-  ["leicht", "Wirken Antibiotika gegen Viren?", "nein"],
-  ["leicht", "Wie heißen die Zellen, die Antikörper speichern?", "gedächtniszellen"],
-  ["leicht", "Kann man sich durch Trinkflaschen anstecken?", "ja"],
-  ["leicht", "Wie nennt man eine Überreaktion des Immunsystems?", "allergie"],
-  ["leicht", "Können Viren mutieren?", "ja"],
-  ["leicht", "Wie nennt man Infektionen durch Lebensmittel?", "lebensmittelinfektion"],
-  ["leicht", "Kann man sich durch Blutkontakt anstecken?", "ja"],
-  ["leicht", "Wie heißen die Zellen, die infizierte Zellen zerstören?", "t-killerzellen"],
-  ["leicht", "Können Bakterien sich teilen?", "ja"],
-  ["leicht", "Wie heißen die Erkennungsmerkmale auf Erregern?", "antigene"],
-  ["leicht", "Kann man sich durch Haustiere anstecken?", "ja"],
-  ["leicht", "Wie nennt man die Reaktion, die Fieber auslöst?", "pyrogenreaktion"],
-  ["leicht", "Können Viren in Zellen „schlafen“?", "ja"],
-  ["leicht", "Wie nennt man die Immunreaktion nach einer Impfung?", "aktive immunisierung"],
-  ["leicht", "Kann Stress das Immunsystem schwächen?", "ja"],
-  ["mittel", "Können Bakterien eine Zellwand besitzen?", "ja"],
-  ["mittel", "Wie heißen die Zellen, die Antikörper herstellen?", "b-zellen"],
-  ["mittel", "Können Viren DNA oder RNA enthalten?", "ja"],
-  ["mittel", "Wie heißt die gezielte Immunabwehr?", "spezifische immunabwehr"],
-  ["mittel", "Können Bakterien Resistenzen entwickeln?", "ja"],
-  ["mittel", "Wie heißen die Proteine auf Erregern?", "antigene"],
-  ["mittel", "Können Viren sich ohne Wirtszelle vermehren?", "nein"],
-  ["mittel", "Wie heißen die Zellen, die infizierte Zellen zerstören?", "t-killerzellen"],
-  ["mittel", "Kann man sich durch Lebensmittel anstecken?", "ja"],
-  ["mittel", "Wie heißt die Zeit vor Symptomen?", "inkubationszeit"],
-  ["mittel", "Können Viren mutieren?", "ja"],
-  ["mittel", "Wie heißen Zellen, die Antigene präsentieren?", "dendritische zellen"],
-  ["mittel", "Kann man sich durch Blutkontakt anstecken?", "ja"],
-  ["mittel", "Wie heißen Immunzellen, die Antikörper speichern?", "gedächtniszellen"],
-  ["mittel", "Können Bakterien sich teilen?", "ja"],
-  ["mittel", "Wie heißt die Übertragung durch Tiere?", "vektorinfektion"],
-  ["mittel", "Können Viren nur bestimmte Zellen infizieren?", "ja"],
-  ["mittel", "Wie heißt eine Überreaktion des Immunsystems?", "allergie"],
-  ["mittel", "Können Bakterien nützlich sein?", "ja"],
-  ["mittel", "Wie heißen Zellen, die Erreger markieren?", "plasmazellen"],
-  ["mittel", "Kann man sich durch Trinkflaschen anstecken?", "ja"],
-  ["mittel", "Wie heißt die Fieberreaktion?", "pyrogenreaktion"],
-  ["mittel", "Können Viren latent bleiben?", "ja"],
-  ["mittel", "Wie heißt die Immunreaktion nach Impfung?", "aktive immunisierung"],
-  ["mittel", "Können Bakterien Sporen bilden?", "ja"],
-  ["mittel", "Wie heißt die schnelle Immunabwehr?", "unspezifische immunabwehr"],
-  ["mittel", "Können Viren ihre Oberfläche verändern?", "ja"],
-  ["mittel", "Wie heißt die Phase stärkster Symptome?", "krankheitsphase"],
-  ["mittel", "Kann Stress das Immunsystem schwächen?", "ja"],
-  ["mittel", "Wie heißen Zellen, die Antigene präsentieren?", "antigenpräsentierende zellen"],
-  ["mittel", "Können Viren über Luft übertragen werden?", "ja"],
-  ["mittel", "Wie heißt die Reaktion des Immunsystems?", "immunantwort"],
-  ["mittel", "Können Bakterien Giftstoffe bilden?", "ja"],
-  ["mittel", "Wie heißt die Krankheit durch HIV?", "aids"],
-  ["mittel", "Können Viren in der Luft überleben?", "ja"],
-  ["mittel", "Wie heißen Zellen, die T-Killer aktivieren?", "t-helferzellen"],
-  ["mittel", "Können Bakterien durch Hitze sterben?", "ja"],
-  ["mittel", "Wie heißt die Übertragung durch Wasser?", "wasserinfektion"],
-  ["mittel", "Können Viren Tiere und Menschen infizieren?", "ja"],
-  ["mittel", "Wie heißt der Angriff auf eigene Zellen?", "autoimmunreaktion"],
-  ["schwer", "Wie heißen Zellen, die Antigene präsentieren?", "antigenpräsentierende zellen"],
-  ["schwer", "Können Viren ihre Oberfläche verändern?", "ja"],
-  ["schwer", "Wie heißt der Angriff auf eigene Zellen?", "autoimmunreaktion"],
-  ["schwer", "Können Bakterien Sporen bilden?", "ja"],
-  ["schwer", "Wie heißen Warnproteine infizierter Zellen?", "interferone"],
-  ["schwer", "Können Viren jahrelang inaktiv bleiben?", "ja"],
-  ["schwer", "Wie heißt die Immunreaktion durch Impfung?", "aktive immunisierung"],
-  ["schwer", "Können T-Helferzellen B-Zellen aktivieren?", "ja"],
-  ["schwer", "Wie heißt die Immunreaktion, die sofort startet?", "unspezifische immunabwehr"],
-  ["schwer", "Können Viren RNA als Erbmaterial haben?", "ja"],
-  ["schwer", "Wie heißt die gezielte Abwehr?", "spezifische immunabwehr"],
-  ["schwer", "Können Bakterien horizontal Gene übertragen?", "ja"],
-  ["schwer", "Wie heißt die Phase nach der Krankheitsphase?", "genesungsphase"],
-  ["schwer", "Können Viren Wirtszellen zerstören?", "ja"],
-  ["schwer", "Wie heißen die Zellen, die Antikörper produzieren?", "plasmazellen"],
-  ["schwer", "Können Viren DNA in Wirtszellen einbauen?", "ja"],
-  ["schwer", "Wie heißt die Reaktion, wenn Fresszellen Erreger aufnehmen?", "phagozytose"],
-  ["schwer", "Können Bakterien Biofilme bilden?", "ja"],
-  ["schwer", "Wie heißen Immunzellen, die Virenreste präsentieren?", "dendritische zellen"],
-  ["schwer", "Können Viren mehrere Arten infizieren?", "ja"],
-  ["schwer", "Wie heißt die Reaktion, wenn Antikörper Antigene verklumpen?", "agglutination"],
-  ["schwer", "Können Bakterien Toxine abgeben?", "ja"],
-  ["schwer", "Wie heißt die Phase, in der Erregerzahl sinkt?", "abklingphase"],
-  ["schwer", "Können Viren Immunzellen infizieren?", "ja"],
-  ["schwer", "Wie heißt die Reaktion, wenn Antikörper Viren blockieren?", "neutralisation"],
-  ["schwer", "Können Bakterien Plasmide austauschen?", "ja"],
-  ["schwer", "Wie heißt die Immunreaktion, die Gedächtniszellen bildet?", "sekundäre immunantwort"],
-  ["schwer", "Können Viren Enzyme nutzen, um Zellen zu öffnen?", "ja"],
-  ["schwer", "Wie heißt die Reaktion, wenn Makrophagen Erreger präsentieren?", "antigenpräsentation"],
-  ["schwer", "Können Viren Wirtszellen umprogrammieren?", "ja"],
+  ...questionRows("leicht", "nein", [
+    "Können Viren sich ohne Wirtszelle vermehren?",
+    "Können Antibiotika Viren bekämpfen?",
+    "Können Bakterien ohne Nahrung über Jahre aktiv bleiben?",
+    "Kann man eine Virusinfektion durch Händewaschen komplett verhindern?",
+    "Können Antikörper Viren herstellen?",
+    "Können Viren selbst Energie erzeugen?",
+    "Können Bakterien immer Krankheiten auslösen?",
+    "Kann man sich durch Gedanken anstecken?",
+    "Können Antikörper ohne Erreger entstehen?",
+    "Können Viren ohne Zellen mutieren?",
+    "Können Bakterien ohne Wasser leben?",
+    "Kann man eine Infektion immer sofort bemerken?",
+    "Können Viren durch Licht sichtbar werden?",
+    "Können Antikörper Bakterien teilen?",
+    "Können Bakterien Viren herstellen?",
+  ]),
+  ...questionRows("mittel", "nein", [
+    "Können T-Killerzellen Antikörper bilden?",
+    "Können Viren gleichzeitig DNA und RNA besitzen?",
+    "Kann die unspezifische Immunabwehr Gedächtniszellen bilden?",
+    "Können B-Zellen Viren direkt zerstören?",
+    "Kann man eine bakterielle Infektion mit Virostatika behandeln?",
+    "Können Makrophagen Antikörper produzieren?",
+    "Können Viren ohne passende Rezeptoren an Zellen andocken?",
+    "Können Bakterien Antikörper neutralisieren?",
+    "Kann das Immunsystem ohne Antigene reagieren?",
+    "Können Viren Proteine ohne Ribosomen herstellen?",
+    "Können Bakterien ohne Zellmembran überleben?",
+    "Können Antikörper Viren aktiv vermehren?",
+    "Können Viren ohne Wirtszellen Energie speichern?",
+    "Können Bakterien ohne Stoffwechsel aktiv bleiben?",
+    "Können Antikörper ohne B-Zellen entstehen?",
+  ]),
+  ...questionRows("schwer", "nein", [
+    "Können Viren ihre eigene Zellwand bilden?",
+    "Können Bakterien ohne DNA überleben?",
+    "Kann die spezifische Immunabwehr ohne T-Helferzellen starten?",
+    "Können Viren Antikörper zerstören?",
+    "Können Bakterien Viren in sich vermehren?",
+    "Kann eine Impfung sofort vollständigen Schutz bieten?",
+    "Können Gedächtniszellen ohne vorherige Infektion entstehen?",
+    "Können Viren ohne Wirtszellen mutieren?",
+    "Können Antikörper körpereigene Zellen angreifen?",
+    "Können Bakterien ohne Stoffwechsel aktiv bleiben?",
+  ]),
+  ...questionRows("leicht", "nein", [
+    "Können Viren ohne Wirtszellen Proteine herstellen?",
+    "Können Bakterien ohne Zellmembran überleben?",
+    "Kann die spezifische Immunabwehr ohne Antigene starten?",
+    "Können Antikörper Viren vermehren?",
+    "Können Viren selbstständig wachsen?",
+    "Können Bakterien ohne Wasser Stoffwechsel betreiben?",
+    "Kann man eine Infektion immer sofort erkennen?",
+    "Können Viren ohne Rezeptoren an Zellen andocken?",
+    "Können B-Zellen Viren direkt zerstören?",
+    "Können Antikörper ohne B-Zellen entstehen?",
+  ]),
+  ...questionRows("mittel", "nein", [
+    "Können Bakterien ohne DNA existieren?",
+    "Können Viren ohne Wirtszellen mutieren?",
+    "Können Makrophagen Antikörper bilden?",
+    "Können Viren Antikörper zerstören?",
+    "Können Bakterien Viren in sich vermehren?",
+    "Kann eine Impfung sofort vollständigen Schutz geben?",
+    "Können Gedächtniszellen ohne Infektion entstehen?",
+    "Können Viren ohne Wirtszellen Energie speichern?",
+    "Können Antikörper körpereigene Zellen angreifen?",
+    "Können Bakterien ohne Stoffwechsel aktiv bleiben?",
+    "Können Viren sich durch Teilung vermehren?",
+    "Können Bakterien ohne Ribosomen Proteine herstellen?",
+    "Kann die unspezifische Abwehr Viren gezielt erkennen?",
+    "Können Viren ohne Erbmaterial existieren?",
+    "Können Antikörper Bakterien teilen?",
+  ]),
+  ...questionRows("schwer", "nein", [
+    "Können Bakterien ohne Zellwand stabil bleiben?",
+    "Können Viren ohne Hülle überleben?",
+    "Können T-Helferzellen Viren direkt töten?",
+    "Können B-Zellen ohne Aktivierung Antikörper bilden?",
+    "Können Viren ohne Wirtszellen replizieren?",
+    "Können Bakterien ohne Enzyme leben?",
+    "Können Antikörper ohne Antigene wirken?",
+    "Können Viren ohne Kapsid stabil bleiben?",
+    "Können Bakterien ohne Zellteilung wachsen?",
+    "Können Viren ohne Wirtszellen Proteine verändern?",
+    "Können Antikörper Viren aktiv zerstören?",
+    "Können Bakterien ohne Plasmide überleben?",
+    "Können Viren ohne Wirtszellen über Wochen aktiv bleiben?",
+    "Können Antikörper ohne Immunsystem existieren?",
+    "Können Bakterien ohne Zellkern Informationen speichern?",
+  ]),
+  ...questionRows("leicht", "ja", [
+    "Können Bakterien nützlich sein?",
+    "Können Viren Krankheiten auslösen?",
+    "Kann man sich durch Niesen anstecken?",
+    "Können Antikörper Erreger erkennen?",
+    "Kann Fieber eine Abwehrreaktion sein?",
+    "Können Bakterien sich teilen?",
+    "Kann man sich durch verunreinigtes Wasser anstecken?",
+    "Können Viren mutieren?",
+    "Können Haustiere Krankheiten übertragen?",
+    "Können Antikörper gespeichert werden?",
+    "Können Bakterien Wärme schlecht vertragen?",
+    "Kann man sich durch Küssen anstecken?",
+    "Können Viren über die Luft übertragen werden?",
+    "Können Antikörper Viren blockieren?",
+    "Können Bakterien Antibiotika überleben?",
+    "Kann Stress das Immunsystem schwächen?",
+    "Können Viren Tiere infizieren?",
+    "Können Antikörper Erreger markieren?",
+    "Kann man sich durch gemeinsam genutzte Flaschen anstecken?",
+    "Können Bakterien im Körper leben?",
+    "Können Viren DNA besitzen?",
+    "Können Bakterien RNA besitzen?",
+    "Kann man sich durch Blut anstecken?",
+    "Können Viren Organe infizieren?",
+    "Können Antikörper im Blut schwimmen?",
+    "Können Bakterien Toxine bilden?",
+    "Kann man sich durch verunreinigte Lebensmittel anstecken?",
+    "Können Viren RNA besitzen?",
+    "Können Bakterien Krankheiten verursachen?",
+    "Können Antikörper Viren verklumpen?",
+    "Können Viren Zellen zerstören?",
+    "Können Bakterien sich schnell vermehren?",
+    "Können Antikörper im Körper bleiben?",
+    "Können Viren über Oberflächen übertragen werden?",
+    "Können Bakterien Hitze überleben?",
+    "Können Antikörper Erreger neutralisieren?",
+    "Können Viren im Körper ruhen?",
+    "Können Bakterien sich anpassen?",
+    "Können Antikörper im Immunsystem gespeichert werden?",
+    "Können Viren durch Tröpfchen übertragen werden?",
+  ]),
+  ...questionRows("mittel", "ja", [
+    "Können Bakterien Sporen bilden?",
+    "Können Viren ihre Oberfläche verändern?",
+    "Können T-Helferzellen B-Zellen aktivieren?",
+    "Können Antikörper Antigene erkennen?",
+    "Können Bakterien horizontal Gene übertragen?",
+    "Können Viren Zellen umprogrammieren?",
+    "Können Makrophagen Erreger fressen?",
+    "Können B-Zellen zu Plasmazellen werden?",
+    "Können Viren DNA in Wirtszellen einbauen?",
+    "Können Antikörper Viren neutralisieren?",
+    "Können Bakterien Biofilme bilden?",
+    "Können Viren mehrere Arten infizieren?",
+    "Können Antikörper verklumpen?",
+    "Können Bakterien Toxine abgeben?",
+    "Können Viren Immunzellen infizieren?",
+    "Können Antikörper Viren blockieren?",
+    "Können Bakterien Plasmide austauschen?",
+    "Können Viren Enzyme nutzen, um Zellen zu öffnen?",
+    "Können Antikörper im Blut zirkulieren?",
+    "Können Bakterien sich an Umwelt anpassen?",
+    "Können Viren Wirtszellen zerstören?",
+    "Können Antikörper Gedächtniszellen aktivieren?",
+    "Können Bakterien Krankheiten verursachen?",
+    "Können Viren RNA besitzen?",
+    "Können Antikörper Viren verklumpen?",
+    "Können Bakterien Zellwände haben?",
+    "Können Viren Organe infizieren?",
+    "Können Antikörper im Körper bleiben?",
+    "Können Bakterien Hitze überleben?",
+    "Können Viren über Oberflächen übertragen werden?",
+  ]),
+  ...questionRows("schwer", "ja", [
+    "Können dendritische Zellen Antigene präsentieren?",
+    "Können Viren ihre Oberfläche stark verändern?",
+    "Können T-Helferzellen die Immunantwort steuern?",
+    "Können Bakterien Resistenzgene austauschen?",
+    "Können Viren DNA in Wirtszellen integrieren?",
+    "Können Antikörper Viren neutralisieren?",
+    "Können Bakterien Biofilme bilden?",
+    "Können Viren Immunzellen infizieren?",
+    "Können Antikörper Antigene verklumpen?",
+    "Können Bakterien Toxine freisetzen?",
+    "Können Viren Wirtszellen lysieren?",
+    "Können Antikörper Gedächtniszellen aktivieren?",
+    "Können Bakterien Plasmide übertragen?",
+    "Können Viren Enzyme nutzen, um Zellen zu öffnen?",
+    "Können Antikörper Viren blockieren?",
+    "Können Bakterien sich extrem schnell vermehren?",
+    "Können Viren mehrere Arten infizieren?",
+    "Können Antikörper im Blut zirkulieren?",
+    "Können Bakterien Zellwände verstärken?",
+    "Können Viren RNA besitzen?",
+    "Können Antikörper Viren verklumpen?",
+    "Können Bakterien Hitze überleben?",
+    "Können Viren Organe infizieren?",
+    "Können Antikörper im Körper bleiben?",
+    "Können Bakterien Resistenz entwickeln?",
+    "Können Viren über Oberflächen übertragen werden?",
+  ]),
+  // Eingabe-Fragen fuer den Fragetyp "Nur Eingabe".
+  ...inputQuestionRows("leicht", [
+    ["Wie heißt die erste Schutzschicht des Körpers?", "haut"],
+    ["Wie nennt man die Zeit zwischen Ansteckung und Symptomen?", "inkubationszeit"],
+    ["Wie heißen die Abwehrstoffe der B-Zellen?", "antikörper"],
+    ["Wie nennt man die Übertragung durch Niesen?", "tröpfcheninfektion"],
+    ["Wie heißt die Krankheit durch Influenzaviren?", "grippe"],
+    ["Wie heißen die Zellen, die Erreger fressen?", "fresszellen"],
+    ["Wie nennt man die Übertragung durch verunreinigtes Wasser?", "wasserinfektion"],
+    ["Wie heißt die Reaktion, die Fieber auslöst?", "pyrogenreaktion"],
+    ["Wie heißen die Zellen, die infizierte Zellen zerstören?", "t-killerzellen"],
+    ["Wie heißen die Erkennungsmerkmale auf Erregern?", "antigene"],
+    ["Wie nennt man die Übertragung durch Lebensmittel?", "lebensmittelinfektion"],
+    ["Wie nennt man die Zellen, die Antikörper speichern?", "gedächtniszellen"],
+    ["Wie heißt die Schutzreaktion des Körpers bei Hitze?", "schwitzen"],
+    ["Wie nennt man die Abwehrreaktion gegen Allergene?", "allergie"],
+    ["Wie heißt die Flüssigkeit, in der Antikörper schwimmen?", "blut"],
+    ["Wie nennt man die Übertragung durch Speichel?", "kontaktinfektion"],
+    ["Wie heißt die Reaktion, wenn der Körper Krankheitserreger erkennt?", "immunantwort"],
+    ["Wie nennt man die Abwehrzellen im Blut?", "leukozyten"],
+    ["Wie heißt die Übertragung durch Tiere?", "vektorinfektion"],
+    ["Wie nennt man die Phase nach der Infektion?", "krankheitsphase"],
+    ["Wie heißt die Phase, in der Symptome verschwinden?", "abklingphase"],
+    ["Wie nennt man die Erreger, die Krankheiten auslösen?", "krankheitserreger"],
+    ["Wie heißt die Flüssigkeit, die Zellen umgibt?", "gewebe"],
+    ["Wie nennt man die Abwehrreaktion gegen Viren?", "antivirale immunantwort"],
+    ["Wie heißt die Übertragung durch die Luft?", "luftinfektion"],
+    ["Wie nennt man die Abwehrreaktion gegen Bakterien?", "antibakterielle immunantwort"],
+    ["Wie heißt die Flüssigkeit, die Viren transportiert?", "blut"],
+    ["Wie nennt man die Zellen, die Antikörper freisetzen?", "plasmazellen"],
+    ["Wie heißt die Reaktion, wenn Antikörper Viren verklumpen?", "agglutination"],
+    ["Wie nennt man die Abwehrreaktion des Körpers?", "immunantwort"],
+    ["Wie heißt die Übertragung durch Hautkontakt?", "kontaktinfektion"],
+    ["Wie nennt man die Zellen, die Viren anzeigen?", "antigenpräsentierende zellen"],
+    ["Wie heißt die Reaktion, wenn der Körper Antikörper bildet?", "immunantwort"],
+    ["Wie nennt man die Übertragung durch Blut?", "blutinfektion"],
+    ["Wie heißt die Phase, in der Erreger sich vermehren?", "inkubationszeit"],
+    ["Wie nennt man die Abwehrreaktion gegen Pilze?", "antifungale immunantwort"],
+    ["Wie heißt die Reaktion, wenn der Körper Viren erkennt?", "antivirale immunantwort"],
+    ["Wie nennt man die Zellen, die Viren zerstören?", "t-killerzellen"],
+    ["Wie heißt die Phase, in der man sich erholt?", "genesungsphase"],
+    ["Wie nennt man die Abwehrreaktion gegen Parasiten?", "antiparasitäre immunantwort"],
+    ["Wie heißt die Flüssigkeit, die Immunzellen transportiert?", "lymphflüssigkeit"],
+    ["Wie nennt man die Zellen, die Viren markieren?", "antikörper"],
+    ["Wie heißt die Übertragung durch Tiere?", "vektorinfektion"],
+    ["Wie nennt man die Abwehrreaktion gegen Giftstoffe?", "entgiftungsreaktion"],
+    ["Wie heißt die Reaktion, wenn der Körper Viren blockiert?", "neutralisation"],
+    ["Wie nennt man die Zellen, die Antikörper freisetzen?", "plasmazellen"],
+    ["Wie heißt die Phase, in der Symptome auftreten?", "krankheitsphase"],
+    ["Wie nennt man die Abwehrreaktion gegen Viren?", "antivirale immunantwort"],
+    ["Wie heißt die Reaktion, wenn Antikörper Erreger markieren?", "opsonisierung"],
+    ["Wie nennt man die Zellen, die Antigene anzeigen?", "antigenpräsentierende zellen"],
+  ]),
+  ...inputQuestionRows("mittel", [
+    ["Wie nennt man die gezielte Immunabwehr?", "spezifische immunabwehr"],
+    ["Wie heißen die Zellen, die Antikörper herstellen?", "b-zellen"],
+    ["Wie nennt man die Zellen, die Antigene präsentieren?", "dendritische zellen"],
+    ["Wie heißt die Phase stärkster Symptome?", "krankheitsphase"],
+    ["Wie nennt man die Immunzellen, die Antikörper speichern?", "gedächtniszellen"],
+    ["Wie heißt die Übertragung durch Tiere?", "vektorinfektion"],
+    ["Wie nennt man die Immunreaktion nach Impfung?", "aktive immunisierung"],
+    ["Wie heißt die schnelle Immunabwehr?", "unspezifische immunabwehr"],
+    ["Wie nennt man die Phase der Erholung?", "genesungsphase"],
+    ["Wie heißt die Reaktion, wenn Antikörper Viren blockieren?", "neutralisation"],
+    ["Wie nennt man die Verklumpung von Antigenen?", "agglutination"],
+    ["Wie heißt die Reaktion, wenn Makrophagen Erreger aufnehmen?", "phagozytose"],
+    ["Wie nennt man die Immunreaktion, die Gedächtniszellen bildet?", "sekundäre immunantwort"],
+    ["Wie heißt die Phase, in der Erregerzahl sinkt?", "abklingphase"],
+    ["Wie nennt man die Proteine, die infizierte Zellen aussenden?", "interferone"],
+    ["Wie heißt die Reaktion, wenn Antikörper Erreger markieren?", "opsonisierung"],
+    ["Wie nennt man die Immunzellen, die Virenreste präsentieren?", "dendritische zellen"],
+    ["Wie heißt die Reaktion, wenn Viren Zellen zerstören?", "lyse"],
+    ["Wie nennt man die Phase, in der Erreger sich stark vermehren?", "inkubationszeit"],
+    ["Wie heißt die Immunreaktion gegen Viren?", "antivirale immunantwort"],
+  ]),
+  ...inputQuestionRows("schwer", [
+    ["Wie nennt man die Reaktion, wenn Makrophagen Antigene präsentieren?", "antigenpräsentation"],
+    ["Wie heißt die Immunreaktion, die Gedächtniszellen bildet?", "sekundäre immunantwort"],
+    ["Wie nennt man die Verklumpung von Viren durch Antikörper?", "agglutination"],
+    ["Wie heißt die Reaktion, wenn Antikörper Viren blockieren?", "neutralisation"],
+    ["Wie nennt man die Phase, in der der Körper Erreger vollständig beseitigt?", "genesungsphase"],
+    ["Wie heißt die Reaktion, wenn Viren DNA in Wirtszellen einbauen?", "integration"],
+    ["Wie nennt man die Immunzellen, die Virenreste anzeigen?", "dendritische zellen"],
+    ["Wie heißt die Reaktion, wenn Viren Zellen auflösen?", "lyse"],
+  ]),
 ];
 
 let questionBank = loadQuestionBank();
 let questions = buildQuestionSet();
 let progress = loadProgress();
+let selectedColorThemeId = loadColorThemeId();
 let round = null;
 let timerId = null;
+let adTimerId = null;
+let adCountdownId = null;
 let audioContext = null;
 
 const $ = (selector) => document.querySelector(selector);
@@ -230,6 +431,161 @@ function saveProgress() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
 
+function loadColorThemeId() {
+  const stored = localStorage.getItem(COLOR_THEME_STORAGE_KEY);
+  return COLOR_THEMES.some((theme) => theme.id === stored) ? stored : COLOR_THEMES[0].id;
+}
+
+function selectedColorTheme() {
+  return COLOR_THEMES.find((theme) => theme.id === selectedColorThemeId) || COLOR_THEMES[0];
+}
+
+function hexToRgb(hex) {
+  const normalized = hex.replace("#", "");
+  const value = parseInt(normalized, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function applyColorTheme() {
+  const theme = selectedColorTheme();
+  const [r, g, b] = hexToRgb(theme.accent);
+  const root = document.documentElement;
+  root.style.setProperty("--accent", theme.accent);
+  root.style.setProperty("--accent-rgb", `${r}, ${g}, ${b}`);
+  root.style.setProperty("--accent-2", theme.accent2);
+  root.style.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.1)`);
+  root.style.setProperty("--hero-start", colorWithAlpha(theme.accent, 0.95));
+  root.style.setProperty("--hero-end", colorWithAlpha(theme.heroEnd, 0.92));
+}
+
+function colorWithAlpha(hex, alpha) {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function renderColorPalette() {
+  const palette = $("#color-palette");
+  if (!palette) return;
+  palette.innerHTML = COLOR_THEMES.map(
+    (theme) => `
+      <button class="color-option ${theme.id === selectedColorThemeId ? "active" : ""}" type="button" data-color-theme="${theme.id}">
+        <span class="palette-swatch" style="--swatch-a:${theme.accent}; --swatch-b:${theme.accent2}"></span>
+        <span>${theme.name}</span>
+      </button>
+    `,
+  ).join("");
+}
+
+function selectColorTheme(themeId) {
+  if (!COLOR_THEMES.some((theme) => theme.id === themeId)) return;
+  selectedColorThemeId = themeId;
+  localStorage.setItem(COLOR_THEME_STORAGE_KEY, selectedColorThemeId);
+  applyColorTheme();
+  renderColorPalette();
+  renderProgress();
+  if ($("#results-screen").classList.contains("active")) renderWave($("#results-wave"));
+  closeColorSettingsPanel();
+  notify("Farbe geändert", `${selectedColorTheme().name} ist jetzt aktiv.`);
+}
+
+function storedTime(key) {
+  return Number(localStorage.getItem(key) || 0);
+}
+
+function setStoredTime(key, value) {
+  localStorage.setItem(key, String(value));
+}
+
+function adFreeUntil() {
+  return storedTime(AD_FREE_UNTIL_STORAGE_KEY);
+}
+
+function isAdFreeActive() {
+  return adFreeUntil() > Date.now();
+}
+
+function formatClockTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function updateAdFreeStatus() {
+  const status = $("#ad-free-status");
+  if (!status) return;
+  if (isAdFreeActive()) {
+    status.textContent = `Werbefrei aktiv bis ${formatClockTime(adFreeUntil())}.`;
+    return;
+  }
+  status.textContent = "Code 6767: 30 Minuten ohne Herr Holzmann.";
+}
+
+function ensureNextAdTime() {
+  const nextAdAt = storedTime(AD_NEXT_STORAGE_KEY);
+  if (!nextAdAt) setStoredTime(AD_NEXT_STORAGE_KEY, Date.now() + AD_INTERVAL_MS);
+}
+
+function scheduleAdBreak() {
+  clearTimeout(adTimerId);
+  updateAdFreeStatus();
+  ensureNextAdTime();
+
+  if (isAdFreeActive()) {
+    adTimerId = setTimeout(scheduleAdBreak, Math.min(adFreeUntil() - Date.now(), AD_INTERVAL_MS));
+    return;
+  }
+
+  const delay = Math.max(0, storedTime(AD_NEXT_STORAGE_KEY) - Date.now());
+  adTimerId = setTimeout(showAdBreak, delay);
+}
+
+function showAdBreak() {
+  if (isAdFreeActive()) {
+    setStoredTime(AD_NEXT_STORAGE_KEY, adFreeUntil() + AD_INTERVAL_MS);
+    scheduleAdBreak();
+    return;
+  }
+
+  const overlay = $("#ad-break");
+  let remaining = Math.ceil(AD_DURATION_MS / 1000);
+  $("#ad-countdown").textContent = remaining;
+  overlay.classList.remove("hidden");
+
+  clearInterval(adCountdownId);
+  adCountdownId = setInterval(() => {
+    remaining -= 1;
+    $("#ad-countdown").textContent = Math.max(0, remaining);
+    if (remaining <= 0) finishAdBreak();
+  }, 1000);
+}
+
+function finishAdBreak() {
+  clearInterval(adCountdownId);
+  $("#ad-break").classList.add("hidden");
+  setStoredTime(AD_NEXT_STORAGE_KEY, Date.now() + AD_INTERVAL_MS);
+  scheduleAdBreak();
+}
+
+function redeemAdFreeCode(event) {
+  event.preventDefault();
+  const input = $("#ad-free-code");
+  if (input.value.trim() !== AD_FREE_CODE) {
+    notify("Code nicht korrekt", "Der Werbefrei-Code lautet nicht so.");
+    return;
+  }
+
+  const until = Date.now() + AD_FREE_MS;
+  setStoredTime(AD_FREE_UNTIL_STORAGE_KEY, until);
+  setStoredTime(AD_NEXT_STORAGE_KEY, until + AD_INTERVAL_MS);
+  input.value = "";
+  updateAdFreeStatus();
+  scheduleAdBreak();
+  notify("Werbefrei aktiviert", "30 Minuten lang kommt Herr Holzmann nicht vorbei.");
+}
+
+function closeColorSettingsPanel() {
+  $("#color-settings-panel").classList.add("hidden");
+  $("#color-settings-toggle").setAttribute("aria-expanded", "false");
+}
+
 function inferTopic(prompt, answer) {
   const text = normalize(prompt + " " + answer);
   if (/bakter|antibiotika|zellwand|resistenz|sporen|giftstoffe|toxine|biofilme|plasmide|horizontal|hitze/.test(text)) return "bakterien";
@@ -327,6 +683,7 @@ function startRound(event) {
     answered: false,
   };
 
+  closeColorSettingsPanel();
   showScreen("quiz-screen");
   renderQuestion();
 }
@@ -726,9 +1083,9 @@ function renderWave(svg) {
   const lastPoint = points[points.length - 1];
   const area = `${path} L ${lastPoint[0].toFixed(1)} 105 L ${points[0][0].toFixed(1)} 105 Z`;
   svg.innerHTML = `
-    <path d="${area}" fill="rgba(37, 111, 104, 0.12)"></path>
-    <path d="${path}" fill="none" stroke="#256f68" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
-    ${points.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#6d91ff"></circle>`).join("")}
+    <path d="${area}" fill="var(--accent-soft)"></path>
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+    ${points.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="var(--accent-2)"></circle>`).join("")}
   `;
 }
 
@@ -775,6 +1132,18 @@ function resetProgress() {
 }
 
 $("#setup-form").addEventListener("submit", startRound);
+$("#color-settings-toggle").addEventListener("click", () => {
+  const panel = $("#color-settings-panel");
+  const isOpen = !panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", isOpen);
+  $("#color-settings-toggle").setAttribute("aria-expanded", String(!isOpen));
+});
+$("#color-palette").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-color-theme]");
+  if (!button) return;
+  selectColorTheme(button.dataset.colorTheme);
+});
+$("#ad-free-form").addEventListener("submit", redeemAdFreeCode);
 $("#answer-form").addEventListener("click", (event) => {
   const button = event.target.closest("[data-answer]");
   if (!button) return;
@@ -805,6 +1174,9 @@ $("#play-again").addEventListener("click", (event) => startRound(event));
 $("#back-to-setup").addEventListener("click", () => showScreen("setup-screen"));
 $("#reset-progress").addEventListener("click", resetProgress);
 
+applyColorTheme();
+renderColorPalette();
 renderProgress();
+scheduleAdBreak();
 
-window.__quizDebug = { questions, getQuestionPool, normalize };
+window.__quizDebug = { questions, getQuestionPool, normalize, COLOR_THEMES, showAdBreak, scheduleAdBreak };
