@@ -1,0 +1,7 @@
+backend/**/__pycache__/
+backend/.venv/
+backend/app/storage/memory.json
+backend/app/storage/*.tmp
+frontend/dist/
+frontend/node_modules/
+
