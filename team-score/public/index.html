@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WYC Team Score</title>
+    <meta
+      name="description"
+      content="Team-Score-Plattform und Leaderboard des Württembergischen Yacht-Clubs."
+    />
+    <link rel="icon" href="/assets/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Zum Inhalt springen</a>
+
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="#top" aria-label="WYC Team Score Start">
+          <img
+            src="/assets/logo-wuerttembergischer-yacht-club.png"
+            alt="Württembergischer Yacht-Club e.V."
+            width="210"
+            height="81"
+          />
+        </a>
+        <nav class="site-nav" aria-label="Hauptnavigation">
+          <a href="#leaderboard">Leaderboard</a>
+          <a href="#open-games">Spiele</a>
+          <a href="#admin">Admin</a>
+        </nav>
+      </div>
+    </header>
+
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-media" aria-hidden="true"></div>
+      <div class="hero-overlay"></div>
+      <div class="shell hero-content">
+        <p class="eyebrow">Württembergischer Yacht-Club e.V.</p>
+        <h1 id="hero-title">WYC Team Score</h1>
+        <p class="hero-copy">
+          Leaderboard für Teams, Aufgaben und Spiele – live und gemeinsam nutzbar.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#leaderboard">Zum Leaderboard</a>
+          <a class="button ghost" href="#admin">Admin öffnen</a>
+        </div>
+      </div>
+    </section>
+
+    <main id="main">
+      <section class="section" id="leaderboard" aria-labelledby="leaderboard-title">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Rangliste</p>
+              <h2 id="leaderboard-title">Leaderboard</h2>
+            </div>
+            <button class="button quiet" type="button" id="refresh-btn">Aktualisieren</button>
+          </div>
+          <p class="section-lead">Gesamtpunkte aller Teams – sortiert nach aktuellem Stand.</p>
+          <div id="leaderboard-list" class="leaderboard" role="list"></div>
+        </div>
+      </section>
+
+      <section class="section alt" id="open-games" aria-labelledby="open-games-title">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Laufend</p>
+              <h2 id="open-games-title">Offene Spiele</h2>
+            </div>
+          </div>
+          <p class="section-lead">Aufgaben und Spiele, für die noch Punkte vergeben werden.</p>
+          <div id="open-games-list" class="game-list"></div>
+        </div>
+      </section>
+
+      <section class="section" id="completed-games" aria-labelledby="completed-games-title">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Beendet</p>
+              <h2 id="completed-games-title">Abgeschlossene Spiele</h2>
+            </div>
+          </div>
+          <p class="section-lead">Bereits ausgewertete Spiele mit finalem Punktestand.</p>
+          <div id="completed-games-list" class="game-list"></div>
+        </div>
+      </section>
+
+      <section class="section admin-section alt" id="admin" aria-labelledby="admin-title">
+        <div class="shell">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Verwaltung</p>
+              <h2 id="admin-title">Admin</h2>
+            </div>
+            <p id="admin-auth-label" class="auth-label">Nicht angemeldet</p>
+          </div>
+
+          <div id="admin-login-panel" class="admin-panel">
+            <form id="admin-login-form" class="form-grid compact">
+              <label>
+                Admin-PIN
+                <input id="admin-pin" type="password" inputmode="numeric" autocomplete="current-password" required />
+              </label>
+              <button class="button primary" type="submit">Anmelden</button>
+            </form>
+            <p id="admin-login-message" class="form-message" hidden></p>
+          </div>
+
+          <div id="admin-workspace" class="admin-workspace hidden" hidden>
+            <div class="admin-toolbar">
+              <button class="button quiet" type="button" id="admin-logout">Abmelden</button>
+            </div>
+
+            <div class="admin-grid">
+              <article class="admin-card">
+                <h3>Neues Team</h3>
+                <form id="create-team-form" class="form-grid">
+                  <label>
+                    Teamname
+                    <input name="name" required maxlength="80" />
+                  </label>
+                  <label>
+                    Mitglieder (kommagetrennt)
+                    <input name="members" placeholder="Anna, Ben, Clara" maxlength="240" />
+                  </label>
+                  <button class="button primary" type="submit">Team anlegen</button>
+                </form>
+              </article>
+
+              <article class="admin-card">
+                <h3>Neues Spiel / Aufgabe</h3>
+                <form id="create-game-form" class="form-grid">
+                  <label>
+                    Titel
+                    <input name="title" required maxlength="120" />
+                  </label>
+                  <label>
+                    Beschreibung
+                    <textarea name="description" rows="3" maxlength="500"></textarea>
+                  </label>
+                  <label>
+                    Max. Punkte (optional)
+                    <input name="max_points" type="number" min="0" step="1" />
+                  </label>
+                  <button class="button primary" type="submit">Spiel anlegen</button>
+                </form>
+              </article>
+
+              <article class="admin-card">
+                <h3>Punkte vergeben</h3>
+                <form id="award-score-form" class="form-grid">
+                  <label>
+                    Spiel
+                    <select name="game_id" id="score-game-select" required></select>
+                  </label>
+                  <label>
+                    Team
+                    <select name="team_id" id="score-team-select" required></select>
+                  </label>
+                  <label>
+                    Punkte
+                    <input name="points" type="number" min="0" step="1" required />
+                  </label>
+                  <label>
+                    Notiz (optional)
+                    <input name="note" maxlength="200" />
+                  </label>
+                  <button class="button primary" type="submit">Punkte speichern</button>
+                </form>
+              </article>
+            </div>
+
+            <div class="admin-manage">
+              <article class="admin-card wide">
+                <h3>Teams verwalten</h3>
+                <div id="admin-teams" class="manage-list"></div>
+              </article>
+              <article class="admin-card wide">
+                <h3>Spiele verwalten</h3>
+                <div id="admin-games" class="manage-list"></div>
+              </article>
+            </div>
+
+            <p id="admin-action-message" class="form-message" hidden></p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <img
+          class="footer-logo"
+          src="/assets/logo-wuerttembergischer-yacht-club.png"
+          alt=""
+          width="140"
+          height="54"
+        />
+        <p>
+          WYC Team Score · Württembergischer Yacht-Club e.V. ·
+          <a href="https://www.wyc-fn.de" rel="noopener noreferrer" target="_blank">wyc-fn.de</a>
+        </p>
+      </div>
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
