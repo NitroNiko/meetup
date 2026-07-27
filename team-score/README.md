@@ -52,6 +52,24 @@ Persistente Daten liegen im Volume `wyc-team-score-data`.
 
 Blueprint: [`render.yaml`](render.yaml)
 
+### Fly.io (empfohlen für wenig Traffic)
+
+Voraussetzung: Account auf [fly.io](https://fly.io) (Login mit GitHub).
+
+```bash
+cd team-score
+fly auth login
+fly apps create wyc-team-score   # falls App noch nicht existiert
+fly volumes create wyc_data --region fra --size 1
+fly secrets set ADMIN_PIN='dein-pin'
+fly deploy
+```
+
+Danach: `https://wyc-team-score.fly.dev`  
+Logs: `fly logs` · Status: `fly status`
+
+`fly.toml` stoppt die Machine bei Idle (`min_machines_running = 0`) und startet sie bei Anfragen automatisch wieder – günstig bei wenig Traffic. SQLite liegt auf dem Volume `wyc_data`.
+
 ### Cloudflare Tunnel (Demo)
 
 Für schnelle öffentliche HTTPS-URLs ohne eigenen Server:
