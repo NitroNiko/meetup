@@ -10,7 +10,7 @@ Eigenständige App unter `team-score/` – die ImmunoQuiz-App im Repository-Root
 - Persistenz in SQLite – gemeinsam nutzbar über mehrere Geräte im Netzwerk
 - Design angelehnt an [wyc-fn.de](https://www.wyc-fn.de) (Club-Blau, IBM Plex Sans, Logo & Hero)
 
-## Start
+## Start (lokal)
 
 Voraussetzung: Node.js 18+
 
@@ -24,11 +24,41 @@ Dann öffnen: [http://localhost:3000](http://localhost:3000)
 
 ### Umgebungsvariablen
 
-| Variable   | Default | Beschreibung        |
-|------------|---------|---------------------|
-| `PORT`     | `3000`  | HTTP-Port           |
-| `ADMIN_PIN`| `1234`  | PIN für den Admin   |
-| `NODE_ENV` | –       | `production` setzt Secure-Cookie |
+| Variable    | Default   | Beschreibung                          |
+|-------------|-----------|---------------------------------------|
+| `PORT`      | `3000`    | HTTP-Port                             |
+| `HOST`      | `0.0.0.0` | Bind-Adresse                          |
+| `ADMIN_PIN` | `1234`    | PIN für den Admin                     |
+| `NODE_ENV`  | –         | `production` setzt Secure-Cookie      |
+
+## Deployment
+
+### Docker (VPS / lokal)
+
+```bash
+cd team-score
+ADMIN_PIN='dein-pin' docker compose up -d --build
+```
+
+Persistente Daten liegen im Volume `wyc-team-score-data`.
+
+### Render.com
+
+1. Neuen **Web Service** aus diesem GitHub-Repo anlegen
+2. **Root Directory:** `team-score`
+3. **Build:** `npm ci` · **Start:** `npm start`
+4. Env: `NODE_ENV=production`, `ADMIN_PIN=…`, `HOST=0.0.0.0`
+5. Optional: Persistent Disk auf `/opt/render/project/src/team-score/data` (sonst geht die SQLite-DB bei Restarts verloren)
+
+Blueprint: [`render.yaml`](render.yaml)
+
+### Cloudflare Tunnel (Demo)
+
+Für schnelle öffentliche HTTPS-URLs ohne eigenen Server:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:3000
+```
 
 ## API (Kurzüberblick)
 

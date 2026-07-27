@@ -13,9 +13,12 @@ const { createGamesRouter } = require("./routes/games");
 const { createScoresRouter, createLeaderboardRouter } = require("./routes/scores");
 
 const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || "0.0.0.0";
 const db = openDatabase();
 const app = express();
 
+// Needed behind reverse proxies (Render, Cloudflare Tunnel, etc.)
+app.set("trust proxy", 1);
 app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));
 app.use(cookieParser());
@@ -41,7 +44,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: "Interner Serverfehler." });
 });
 
-app.listen(PORT, () => {
-  console.log(`WYC Team Score läuft auf http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`WYC Team Score läuft auf http://${HOST}:${PORT}`);
   console.log(`Admin-PIN: ${process.env.ADMIN_PIN ? "(aus ENV)" : "1234 (Default)"}`);
 });
