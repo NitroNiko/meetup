@@ -127,7 +127,7 @@ a:hover {
   position: absolute;
   inset: 0;
   background:
-    url("/assets/hero-seebaerlelager.png") center / cover no-repeat;
+    url("/assets/hero-seebaerlelager.jpg") center / cover no-repeat;
   transform: scale(1.02);
   animation: heroDrift 18s ease-in-out infinite alternate;
 }
