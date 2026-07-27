@@ -127,7 +127,7 @@ a:hover {
   position: absolute;
   inset: 0;
   background:
-    url("/assets/hero-regatten.jpg") center / cover no-repeat;
+    url("/assets/hero-seebaerlelager.png") center / cover no-repeat;
   transform: scale(1.02);
   animation: heroDrift 18s ease-in-out infinite alternate;
 }
@@ -135,14 +135,20 @@ a:hover {
 .hero-overlay {
   position: absolute;
   inset: 0;
+  /* Light top so the title artwork stays readable; stronger bottom for CTAs */
   background:
-    linear-gradient(180deg, rgba(20, 48, 74, 0.25) 0%, rgba(20, 48, 74, 0.72) 70%, rgba(20, 48, 74, 0.88) 100%);
+    linear-gradient(
+      180deg,
+      rgba(20, 48, 74, 0.08) 0%,
+      rgba(20, 48, 74, 0.2) 45%,
+      rgba(20, 48, 74, 0.78) 100%
+    );
 }
 
 .hero-content {
   position: relative;
   z-index: 1;
-  padding: 4.5rem 0 3.25rem;
+  padding: 12rem 0 2.75rem;
 }
 
 .eyebrow {
