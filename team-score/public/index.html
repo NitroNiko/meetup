@@ -178,6 +178,26 @@
                   <button class="button primary" type="submit">Punkte speichern</button>
                 </form>
               </article>
+
+              <article class="admin-card">
+                <h3>Punkte korrigieren</h3>
+                <p class="team-members">Gesamtpunktzahl eines Teams manuell setzen (Spielpunkte bleiben erhalten).</p>
+                <form id="correct-points-form" class="form-grid">
+                  <label>
+                    Team
+                    <select name="team_id" id="correct-team-select" required></select>
+                  </label>
+                  <label>
+                    Neue Gesamtpunkte
+                    <input name="total_points" type="number" step="1" placeholder="z. B. 120" />
+                  </label>
+                  <label>
+                    Oder Differenz (+/−)
+                    <input name="delta" type="number" step="1" placeholder="z. B. -5 oder 10" />
+                  </label>
+                  <button class="button primary" type="submit">Korrektur speichern</button>
+                </form>
+              </article>
             </div>
 
             <div class="admin-manage">

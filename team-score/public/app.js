@@ -138,6 +138,7 @@
   function fillScoreSelects() {
     const gameSelect = $("#score-game-select");
     const teamSelect = $("#score-team-select");
+    const correctTeamSelect = $("#correct-team-select");
     const allGames = [...state.openGames, ...state.completedGames];
 
     gameSelect.innerHTML = allGames
@@ -147,9 +148,14 @@
       )
       .join("");
 
-    teamSelect.innerHTML = state.teams
-      .map((team) => `<option value="${team.id}">${escapeHtml(team.name)}</option>`)
+    const teamOptions = state.teams
+      .map((team) => `<option value="${team.id}">${escapeHtml(team.name)} (${team.total_points} Pkt.)</option>`)
       .join("");
+
+    teamSelect.innerHTML = teamOptions;
+    if (correctTeamSelect) {
+      correctTeamSelect.innerHTML = teamOptions;
+    }
   }
 
   function renderAdminTeams() {
@@ -170,11 +176,16 @@
           )
           .join("");
 
+        const adjustment =
+          team.adjustment_points !== 0
+            ? ` · Korrektur ${team.adjustment_points > 0 ? "+" : ""}${team.adjustment_points}`
+            : "";
+
         return `<div class="manage-item" data-team-id="${team.id}">
           <div class="manage-head">
             <div>
               <strong>${escapeHtml(team.name)}</strong>
-              <p class="team-members">${team.total_points} Punkte gesamt</p>
+              <p class="team-members">${team.total_points} Punkte gesamt (${team.game_points} aus Spielen${adjustment})</p>
             </div>
             <div class="manage-actions">
               <button class="button quiet small" type="button" data-action="rename-team" data-team-id="${team.id}" data-name="${escapeHtml(team.name)}">Umbenennen</button>
@@ -185,6 +196,10 @@
           <form class="inline-form" data-action="add-member" data-team-id="${team.id}">
             <input name="name" placeholder="Neues Mitglied" required maxlength="80" />
             <button class="button quiet small" type="submit">Hinzufügen</button>
+          </form>
+          <form class="inline-form" data-action="correct-points" data-team-id="${team.id}">
+            <input name="total_points" type="number" step="1" value="${team.total_points}" aria-label="Gesamtpunkte" required />
+            <button class="button quiet small" type="submit">Punkte setzen</button>
           </form>
         </div>`;
       })
@@ -370,20 +385,66 @@
     }
   });
 
+  $("#correct-points-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const teamId = Number(data.get("team_id"));
+    const totalRaw = String(data.get("total_points") || "").trim();
+    const deltaRaw = String(data.get("delta") || "").trim();
+
+    const body = {};
+    if (deltaRaw !== "") {
+      body.delta = Number(deltaRaw);
+    } else if (totalRaw !== "") {
+      body.total_points = Number(totalRaw);
+    } else {
+      showMessage($("#admin-action-message"), "Bitte Gesamtpunkte oder Differenz angeben.", true);
+      return;
+    }
+
+    try {
+      await api(`/api/teams/${teamId}/points`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+      form.reset();
+      showMessage($("#admin-action-message"), "Punkte korrigiert.");
+      await refreshPublicData();
+    } catch (error) {
+      showMessage($("#admin-action-message"), error.message, true);
+    }
+  });
+
   $("#admin-teams").addEventListener("submit", async (event) => {
-    const form = event.target.closest("form[data-action='add-member']");
-    if (!form) {
+    const addMemberForm = event.target.closest("form[data-action='add-member']");
+    const correctForm = event.target.closest("form[data-action='correct-points']");
+    if (!addMemberForm && !correctForm) {
       return;
     }
     event.preventDefault();
-    const teamId = form.dataset.teamId;
-    const name = new FormData(form).get("name");
+
     try {
-      await api(`/api/teams/${teamId}/members`, {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      });
-      showMessage($("#admin-action-message"), "Mitglied hinzugefügt.");
+      if (addMemberForm) {
+        const teamId = addMemberForm.dataset.teamId;
+        const name = new FormData(addMemberForm).get("name");
+        await api(`/api/teams/${teamId}/members`, {
+          method: "POST",
+          body: JSON.stringify({ name }),
+        });
+        showMessage($("#admin-action-message"), "Mitglied hinzugefügt.");
+      }
+
+      if (correctForm) {
+        const teamId = correctForm.dataset.teamId;
+        const totalPoints = Number(new FormData(correctForm).get("total_points"));
+        await api(`/api/teams/${teamId}/points`, {
+          method: "PUT",
+          body: JSON.stringify({ total_points: totalPoints }),
+        });
+        showMessage($("#admin-action-message"), "Punkte korrigiert.");
+      }
+
       await refreshPublicData();
     } catch (error) {
       showMessage($("#admin-action-message"), error.message, true);

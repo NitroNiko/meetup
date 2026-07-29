@@ -88,7 +88,9 @@ function createLeaderboardRouter(db) {
     SELECT
       t.id,
       t.name,
-      COALESCE(SUM(s.points), 0) AS total_points,
+      t.adjustment_points,
+      COALESCE(SUM(s.points), 0) AS game_points,
+      COALESCE(SUM(s.points), 0) + t.adjustment_points AS total_points,
       COUNT(s.id) AS scored_games
     FROM teams t
     LEFT JOIN score_entries s ON s.team_id = t.id
@@ -105,6 +107,8 @@ function createLeaderboardRouter(db) {
       rank: index + 1,
       id: row.id,
       name: row.name,
+      game_points: Number(row.game_points) || 0,
+      adjustment_points: Number(row.adjustment_points) || 0,
       total_points: Number(row.total_points) || 0,
       scored_games: Number(row.scored_games) || 0,
       members: membersStmt.all(row.id),

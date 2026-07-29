@@ -5,6 +5,7 @@ const {
   notFound,
   parseId,
   trimRequired,
+  parseInteger,
 } = require("./helpers");
 
 function createTeamsRouter(db) {
@@ -15,7 +16,9 @@ function createTeamsRouter(db) {
       t.id,
       t.name,
       t.created_at,
-      COALESCE(SUM(s.points), 0) AS total_points
+      t.adjustment_points,
+      COALESCE(SUM(s.points), 0) AS game_points,
+      COALESCE(SUM(s.points), 0) + t.adjustment_points AS total_points
     FROM teams t
     LEFT JOIN score_entries s ON s.team_id = t.id
     GROUP BY t.id
@@ -29,19 +32,43 @@ function createTeamsRouter(db) {
     ORDER BY name COLLATE NOCASE
   `);
 
-  const getTeamStmt = db.prepare("SELECT id, name, created_at FROM teams WHERE id = ?");
+  const getTeamStmt = db.prepare(
+    "SELECT id, name, created_at, adjustment_points FROM teams WHERE id = ?"
+  );
+  const gamePointsStmt = db.prepare(
+    "SELECT COALESCE(SUM(points), 0) AS game_points FROM score_entries WHERE team_id = ?"
+  );
   const insertTeamStmt = db.prepare("INSERT INTO teams (name) VALUES (?)");
   const updateTeamStmt = db.prepare("UPDATE teams SET name = ? WHERE id = ?");
+  const updateAdjustmentStmt = db.prepare(
+    "UPDATE teams SET adjustment_points = ? WHERE id = ?"
+  );
   const deleteTeamStmt = db.prepare("DELETE FROM teams WHERE id = ?");
   const insertMemberStmt = db.prepare("INSERT INTO members (team_id, name) VALUES (?, ?)");
   const deleteMemberStmt = db.prepare("DELETE FROM members WHERE id = ? AND team_id = ?");
 
-  function attachMembers(teams) {
-    return teams.map((team) => ({
-      ...team,
-      total_points: Number(team.total_points) || 0,
+  function enrichTeam(team) {
+    if (!team) {
+      return null;
+    }
+    const gamePoints =
+      team.game_points != null
+        ? Number(team.game_points) || 0
+        : Number(gamePointsStmt.get(team.id).game_points) || 0;
+    const adjustmentPoints = Number(team.adjustment_points) || 0;
+    return {
+      id: team.id,
+      name: team.name,
+      created_at: team.created_at,
+      game_points: gamePoints,
+      adjustment_points: adjustmentPoints,
+      total_points: gamePoints + adjustmentPoints,
       members: membersByTeamStmt.all(team.id),
-    }));
+    };
+  }
+
+  function attachMembers(teams) {
+    return teams.map(enrichTeam);
   }
 
   router.get("/", (_req, res) => {
@@ -57,7 +84,7 @@ function createTeamsRouter(db) {
     if (!team) {
       return notFound(res, "Team nicht gefunden.");
     }
-    return res.json(attachMembers([team])[0]);
+    return res.json(enrichTeam(team));
   });
 
   router.post("/", requireAdmin, (req, res) => {
@@ -78,8 +105,7 @@ function createTeamsRouter(db) {
       });
 
       const teamId = create();
-      const team = getTeamStmt.get(teamId);
-      return res.status(201).json(attachMembers([team])[0]);
+      return res.status(201).json(enrichTeam(getTeamStmt.get(teamId)));
     } catch (error) {
       if (String(error.message).includes("UNIQUE")) {
         return badRequest(res, "Ein Team mit diesem Namen existiert bereits.");
@@ -100,11 +126,50 @@ function createTeamsRouter(db) {
     try {
       const name = trimRequired(req.body?.name, "Teamname");
       updateTeamStmt.run(name, id);
-      return res.json(attachMembers([getTeamStmt.get(id)])[0]);
+      return res.json(enrichTeam(getTeamStmt.get(id)));
     } catch (error) {
       if (String(error.message).includes("UNIQUE")) {
         return badRequest(res, "Ein Team mit diesem Namen existiert bereits.");
       }
+      return badRequest(res, error.message);
+    }
+  });
+
+  /**
+   * Manually correct team standings.
+   * Body: { total_points } sets absolute total, or { delta } adjusts relatively.
+   * Game scores stay intact; difference is stored as adjustment_points.
+   */
+  router.put("/:id/points", requireAdmin, (req, res) => {
+    const id = parseId(req.params.id);
+    if (!id) {
+      return badRequest(res, "Ungültige Team-ID.");
+    }
+    const team = getTeamStmt.get(id);
+    if (!team) {
+      return notFound(res, "Team nicht gefunden.");
+    }
+
+    try {
+      const hasTotal = req.body?.total_points !== undefined && req.body?.total_points !== "";
+      const hasDelta = req.body?.delta !== undefined && req.body?.delta !== "";
+      if (hasTotal === hasDelta) {
+        return badRequest(res, "Bitte genau eines von total_points oder delta angeben.");
+      }
+
+      const gamePoints = Number(gamePointsStmt.get(id).game_points) || 0;
+      let nextAdjustment;
+      if (hasTotal) {
+        const totalPoints = parseInteger(req.body.total_points, "total_points");
+        nextAdjustment = totalPoints - gamePoints;
+      } else {
+        const delta = parseInteger(req.body.delta, "delta");
+        nextAdjustment = (Number(team.adjustment_points) || 0) + delta;
+      }
+
+      updateAdjustmentStmt.run(nextAdjustment, id);
+      return res.json(enrichTeam(getTeamStmt.get(id)));
+    } catch (error) {
       return badRequest(res, error.message);
     }
   });

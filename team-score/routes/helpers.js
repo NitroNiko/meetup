@@ -31,10 +31,19 @@ function parseNonNegativeInt(value, fieldName) {
   return n;
 }
 
+function parseInteger(value, fieldName) {
+  const n = Number(value);
+  if (!Number.isInteger(n)) {
+    throw new Error(`${fieldName} muss eine ganze Zahl sein.`);
+  }
+  return n;
+}
+
 module.exports = {
   badRequest,
   notFound,
   parseId,
   trimRequired,
   parseNonNegativeInt,
+  parseInteger,
 };

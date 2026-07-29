@@ -67,6 +67,14 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_scores_team ON score_entries(team_id);
     CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
   `);
+
+  // Manual point corrections (can be negative); applied on top of game scores.
+  const teamColumns = db.prepare("PRAGMA table_info(teams)").all();
+  if (!teamColumns.some((column) => column.name === "adjustment_points")) {
+    db.exec(
+      "ALTER TABLE teams ADD COLUMN adjustment_points INTEGER NOT NULL DEFAULT 0"
+    );
+  }
 }
 
 function seedIfEmpty(db) {
