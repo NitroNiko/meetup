@@ -39,6 +39,30 @@ function parseInteger(value, fieldName) {
   return n;
 }
 
+function parseDate(value, fieldName = "date") {
+  const text = String(value ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    throw new Error(`${fieldName} muss im Format JJJJ-MM-TT sein.`);
+  }
+  const parsed = new Date(`${text}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== text) {
+    throw new Error(`${fieldName} ist kein gültiges Datum.`);
+  }
+  return text;
+}
+
+function parseHexColor(value, fieldName = "color") {
+  const text = String(value ?? "").trim();
+  if (!/^#[0-9A-Fa-f]{6}$/.test(text)) {
+    throw new Error(`${fieldName} muss ein Hex-Wert wie #2E6EA7 sein.`);
+  }
+  return text.toUpperCase();
+}
+
+function todayDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 module.exports = {
   badRequest,
   notFound,
@@ -46,4 +70,7 @@ module.exports = {
   trimRequired,
   parseNonNegativeInt,
   parseInteger,
+  parseDate,
+  parseHexColor,
+  todayDateString,
 };

@@ -64,7 +64,21 @@
             </div>
             <button class="button quiet" type="button" id="refresh-btn">Aktualisieren</button>
           </div>
-          <p class="section-lead">Gesamtpunkte aller Teams – sortiert nach aktuellem Stand.</p>
+          <div class="leaderboard-controls" role="group" aria-label="Leaderboard-Ansicht">
+            <div class="mode-toggle">
+              <button class="button quiet small mode-btn is-active" type="button" data-mode="total" id="mode-total">
+                Gesamtpunktestand
+              </button>
+              <button class="button quiet small mode-btn" type="button" data-mode="daily" id="mode-daily">
+                Tagespunktestand
+              </button>
+            </div>
+            <label class="date-filter" id="daily-date-wrap" hidden>
+              Datum
+              <input type="date" id="leaderboard-date" />
+            </label>
+          </div>
+          <p class="section-lead" id="leaderboard-lead">Gesamtpunkte aller Teams – sortiert nach aktuellem Stand.</p>
           <div id="leaderboard-list" class="leaderboard" role="list"></div>
         </div>
       </section>
@@ -130,6 +144,11 @@
                     <input name="name" required maxlength="80" />
                   </label>
                   <label>
+                    Teamfarbe
+                    <input name="color" type="color" value="#2E6EA7" />
+                  </label>
+                  <div class="color-presets" id="team-color-presets" aria-label="Farbvorschläge"></div>
+                  <label>
                     Mitglieder (kommagetrennt)
                     <input name="members" placeholder="Anna, Ben, Clara" maxlength="240" />
                   </label>
@@ -166,6 +185,10 @@
                   <label>
                     Team
                     <select name="team_id" id="score-team-select" required></select>
+                  </label>
+                  <label>
+                    Datum
+                    <input name="score_date" id="score-date-input" type="date" required />
                   </label>
                   <label>
                     Punkte

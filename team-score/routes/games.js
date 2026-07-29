@@ -33,11 +33,13 @@ function createGamesRouter(db) {
       s.points,
       s.note,
       s.awarded_at,
-      t.name AS team_name
+      s.score_date,
+      t.name AS team_name,
+      t.color AS team_color
     FROM score_entries s
     JOIN teams t ON t.id = s.team_id
     WHERE s.game_id = ?
-    ORDER BY s.points DESC, t.name COLLATE NOCASE
+    ORDER BY s.score_date DESC, s.points DESC, t.name COLLATE NOCASE
   `);
 
   const insertGameStmt = db.prepare(`

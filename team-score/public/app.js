@@ -5,13 +5,40 @@
 (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
 
+  const COLOR_PRESETS = [
+    "#2E6EA7",
+    "#E12914",
+    "#5ABC8E",
+    "#F5C161",
+    "#6B5B95",
+    "#1B3F61",
+    "#0D9488",
+    "#EA580C",
+  ];
+
   const state = {
     authenticated: false,
+    leaderboardMode: "total",
+    leaderboardDate: todayLocal(),
     leaderboard: [],
     teams: [],
     openGames: [],
     completedGames: [],
   };
+
+  function todayLocal() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+  }
+
+  function formatDisplayDate(isoDate) {
+    if (!isoDate) {
+      return "";
+    }
+    const [y, m, d] = isoDate.split("-");
+    return `${d}.${m}.${y}`;
+  }
 
   async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -68,6 +95,26 @@
     el.classList.toggle("error", Boolean(isError));
   }
 
+  function syncLeaderboardControls() {
+    const dateWrap = $("#daily-date-wrap");
+    const dateInput = $("#leaderboard-date");
+    const lead = $("#leaderboard-lead");
+
+    document.querySelectorAll(".mode-btn").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.mode === state.leaderboardMode);
+    });
+
+    const isDaily = state.leaderboardMode === "daily";
+    dateWrap.hidden = !isDaily;
+    if (dateInput && !dateInput.value) {
+      dateInput.value = state.leaderboardDate;
+    }
+
+    lead.textContent = isDaily
+      ? `Punkte vom ${formatDisplayDate(state.leaderboardDate)} – ohne Gesamtkorrekturen.`
+      : "Gesamtpunkte aller Teams – inkl. manueller Korrekturen.";
+  }
+
   function renderLeaderboard() {
     const root = $("#leaderboard-list");
     if (!state.leaderboard.length) {
@@ -76,29 +123,31 @@
     }
 
     root.innerHTML = state.leaderboard
-      .map(
-        (team, index) => `
-      <article class="leader-row ${index < 3 ? "top" : ""}" role="listitem" style="animation-delay:${index * 40}ms">
+      .map((team, index) => {
+        const color = team.color || "#2E6EA7";
+        return `
+      <article class="leader-row ${index < 3 ? "top" : ""}" role="listitem" style="--team-color:${escapeHtml(color)};animation-delay:${index * 40}ms">
         <div class="rank-badge" aria-label="Platz ${team.rank}">${team.rank}</div>
         <div>
-          <p class="team-name">${escapeHtml(team.name)}</p>
+          <p class="team-name"><span class="team-swatch" style="background:${escapeHtml(color)}"></span>${escapeHtml(team.name)}</p>
           <p class="team-members">${escapeHtml(formatMembers(team.members))}</p>
         </div>
         <p class="points">${team.total_points}<span>Punkte</span></p>
-      </article>`
-      )
+      </article>`;
+      })
       .join("");
   }
 
   function renderGameCard(game) {
     const scores = game.scores?.length
       ? `<table class="score-table">
-          <thead><tr><th>Team</th><th>Punkte</th><th>Notiz</th></tr></thead>
+          <thead><tr><th>Team</th><th>Datum</th><th>Punkte</th><th>Notiz</th></tr></thead>
           <tbody>
             ${game.scores
               .map(
                 (score) => `<tr>
-                  <td>${escapeHtml(score.team_name)}</td>
+                  <td><span class="team-swatch" style="background:${escapeHtml(score.team_color || "#2E6EA7")}"></span>${escapeHtml(score.team_name)}</td>
+                  <td>${escapeHtml(formatDisplayDate(score.score_date) || "—")}</td>
                   <td>${score.points}</td>
                   <td>${escapeHtml(score.note || "—")}</td>
                 </tr>`
@@ -139,6 +188,7 @@
     const gameSelect = $("#score-game-select");
     const teamSelect = $("#score-team-select");
     const correctTeamSelect = $("#correct-team-select");
+    const scoreDateInput = $("#score-date-input");
     const allGames = [...state.openGames, ...state.completedGames];
 
     gameSelect.innerHTML = allGames
@@ -149,13 +199,32 @@
       .join("");
 
     const teamOptions = state.teams
-      .map((team) => `<option value="${team.id}">${escapeHtml(team.name)} (${team.total_points} Pkt.)</option>`)
+      .map(
+        (team) =>
+          `<option value="${team.id}">${escapeHtml(team.name)} (${team.total_points} Pkt.)</option>`
+      )
       .join("");
 
     teamSelect.innerHTML = teamOptions;
     if (correctTeamSelect) {
       correctTeamSelect.innerHTML = teamOptions;
     }
+    if (scoreDateInput && !scoreDateInput.value) {
+      scoreDateInput.value = todayLocal();
+    }
+  }
+
+  function renderColorPresets() {
+    const root = $("#team-color-presets");
+    const colorInput = $("#create-team-form input[name='color']");
+    if (!root || !colorInput) {
+      return;
+    }
+
+    root.innerHTML = COLOR_PRESETS.map(
+      (color) =>
+        `<button type="button" class="color-preset ${colorInput.value.toUpperCase() === color ? "is-selected" : ""}" data-color="${color}" style="background:${color}" aria-label="Farbe ${color}"></button>`
+    ).join("");
   }
 
   function renderAdminTeams() {
@@ -181,10 +250,12 @@
             ? ` · Korrektur ${team.adjustment_points > 0 ? "+" : ""}${team.adjustment_points}`
             : "";
 
+        const color = team.color || "#2E6EA7";
+
         return `<div class="manage-item" data-team-id="${team.id}">
           <div class="manage-head">
             <div>
-              <strong>${escapeHtml(team.name)}</strong>
+              <strong><span class="team-swatch" style="background:${escapeHtml(color)}"></span>${escapeHtml(team.name)}</strong>
               <p class="team-members">${team.total_points} Punkte gesamt (${team.game_points} aus Spielen${adjustment})</p>
             </div>
             <div class="manage-actions">
@@ -193,6 +264,10 @@
             </div>
           </div>
           <div class="member-chips">${chips || `<span class="team-members">Keine Mitglieder</span>`}</div>
+          <form class="inline-form" data-action="set-color" data-team-id="${team.id}">
+            <input class="inline-color" name="color" type="color" value="${escapeHtml(color)}" aria-label="Teamfarbe" />
+            <button class="button quiet small" type="submit">Farbe speichern</button>
+          </form>
           <form class="inline-form" data-action="add-member" data-team-id="${team.id}">
             <input name="name" placeholder="Neues Mitglied" required maxlength="80" />
             <button class="button quiet small" type="submit">Hinzufügen</button>
@@ -250,18 +325,26 @@
   }
 
   async function refreshPublicData() {
-    const [leaderboard, teams, openGames, completedGames] = await Promise.all([
-      api("/api/leaderboard"),
+    const leaderboardQuery =
+      state.leaderboardMode === "daily"
+        ? `/api/leaderboard?mode=daily&date=${encodeURIComponent(state.leaderboardDate)}`
+        : "/api/leaderboard?mode=total";
+
+    const [leaderboardPayload, teams, openGames, completedGames] = await Promise.all([
+      api(leaderboardQuery),
       api("/api/teams"),
       api("/api/games?status=open"),
       api("/api/games?status=completed"),
     ]);
 
-    state.leaderboard = leaderboard;
+    state.leaderboard = Array.isArray(leaderboardPayload)
+      ? leaderboardPayload
+      : leaderboardPayload.teams || [];
     state.teams = teams;
     state.openGames = openGames;
     state.completedGames = completedGames;
 
+    syncLeaderboardControls();
     renderLeaderboard();
     renderGames();
 
@@ -269,6 +352,7 @@
       fillScoreSelects();
       renderAdminTeams();
       renderAdminGames();
+      renderColorPresets();
     }
   }
 
@@ -278,6 +362,15 @@
   }
 
   async function bootstrap() {
+    const dateInput = $("#leaderboard-date");
+    if (dateInput) {
+      dateInput.value = state.leaderboardDate;
+    }
+    const scoreDateInput = $("#score-date-input");
+    if (scoreDateInput) {
+      scoreDateInput.value = todayLocal();
+    }
+    renderColorPresets();
     await refreshAuth();
     await refreshPublicData();
   }
@@ -288,6 +381,40 @@
     } catch (error) {
       alert(error.message);
     }
+  });
+
+  document.querySelectorAll(".mode-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      state.leaderboardMode = btn.dataset.mode;
+      syncLeaderboardControls();
+      try {
+        await refreshPublicData();
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+  });
+
+  $("#leaderboard-date").addEventListener("change", async (event) => {
+    state.leaderboardDate = event.target.value || todayLocal();
+    if (state.leaderboardMode !== "daily") {
+      return;
+    }
+    try {
+      await refreshPublicData();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+
+  $("#team-color-presets").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-color]");
+    if (!button) {
+      return;
+    }
+    const colorInput = $("#create-team-form input[name='color']");
+    colorInput.value = button.dataset.color;
+    renderColorPresets();
   });
 
   $("#admin-login-form").addEventListener("submit", async (event) => {
@@ -329,10 +456,13 @@
         method: "POST",
         body: JSON.stringify({
           name: data.get("name"),
+          color: data.get("color"),
           members,
         }),
       });
       form.reset();
+      form.querySelector("input[name='color']").value = "#2E6EA7";
+      renderColorPresets();
       showMessage($("#admin-action-message"), "Team angelegt.");
       await refreshPublicData();
     } catch (error) {
@@ -375,6 +505,7 @@
           game_id: Number(data.get("game_id")),
           team_id: Number(data.get("team_id")),
           points: Number(data.get("points")),
+          score_date: data.get("score_date"),
           note: data.get("note") || "",
         }),
       });
@@ -399,7 +530,11 @@
     } else if (totalRaw !== "") {
       body.total_points = Number(totalRaw);
     } else {
-      showMessage($("#admin-action-message"), "Bitte Gesamtpunkte oder Differenz angeben.", true);
+      showMessage(
+        $("#admin-action-message"),
+        "Bitte Gesamtpunkte oder Differenz angeben.",
+        true
+      );
       return;
     }
 
@@ -419,7 +554,8 @@
   $("#admin-teams").addEventListener("submit", async (event) => {
     const addMemberForm = event.target.closest("form[data-action='add-member']");
     const correctForm = event.target.closest("form[data-action='correct-points']");
-    if (!addMemberForm && !correctForm) {
+    const colorForm = event.target.closest("form[data-action='set-color']");
+    if (!addMemberForm && !correctForm && !colorForm) {
       return;
     }
     event.preventDefault();
@@ -445,6 +581,17 @@
         showMessage($("#admin-action-message"), "Punkte korrigiert.");
       }
 
+      if (colorForm) {
+        const teamId = colorForm.dataset.teamId;
+        const color = new FormData(colorForm).get("color");
+        const team = state.teams.find((item) => String(item.id) === String(teamId));
+        await api(`/api/teams/${teamId}`, {
+          method: "PUT",
+          body: JSON.stringify({ name: team?.name, color }),
+        });
+        showMessage($("#admin-action-message"), "Teamfarbe gespeichert.");
+      }
+
       await refreshPublicData();
     } catch (error) {
       showMessage($("#admin-action-message"), error.message, true);
@@ -460,9 +607,10 @@
     const action = button.dataset.action;
     try {
       if (action === "delete-member") {
-        await api(`/api/teams/${button.dataset.teamId}/members/${button.dataset.memberId}`, {
-          method: "DELETE",
-        });
+        await api(
+          `/api/teams/${button.dataset.teamId}/members/${button.dataset.memberId}`,
+          { method: "DELETE" }
+        );
         showMessage($("#admin-action-message"), "Mitglied entfernt.");
       }
 
@@ -479,9 +627,12 @@
         if (!next) {
           return;
         }
+        const team = state.teams.find(
+          (item) => String(item.id) === String(button.dataset.teamId)
+        );
         await api(`/api/teams/${button.dataset.teamId}`, {
           method: "PUT",
-          body: JSON.stringify({ name: next }),
+          body: JSON.stringify({ name: next, color: team?.color }),
         });
         showMessage($("#admin-action-message"), "Team umbenannt.");
       }
