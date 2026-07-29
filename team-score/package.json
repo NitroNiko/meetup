@@ -1,0 +1,19 @@
+{
+  "name": "wyc-team-score",
+  "version": "1.0.0",
+  "description": "WYC Team Score Platform – Leaderboard für Teams und Spiele",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2"
+  }
+}

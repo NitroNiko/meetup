@@ -1,0 +1,8 @@
+# Fly ignores local junk during remote builds when using Dockerfile context
+node_modules
+npm-debug.log
+data/*.db
+data/*.db-*
+.git
+.env
+.DS_Store

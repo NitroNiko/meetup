@@ -1,0 +1,17 @@
+# Render Blueprint at repo root – deploys only the team-score app
+services:
+  - type: web
+    name: wyc-team-score
+    runtime: node
+    plan: free
+    rootDir: team-score
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: ADMIN_PIN
+        generateValue: true
