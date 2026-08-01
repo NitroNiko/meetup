@@ -456,11 +456,6 @@ a:hover {
   color: var(--wyc-blue);
 }
 
-.status-pill.completed {
-  background: rgba(90, 188, 142, 0.18);
-  color: #2f7a58;
-}
-
 .score-table {
   width: 100%;
   border-collapse: collapse;
@@ -518,10 +513,49 @@ a:hover {
 
 .admin-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  position: sticky;
+  top: calc(var(--header-h) + 0.35rem);
+  z-index: 40;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--wyc-border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
 }
 
-  .admin-grid {
+.admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+}
+
+.admin-nav a {
+  color: var(--wyc-text);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.admin-nav a:hover {
+  color: var(--wyc-blue);
+  background: var(--wyc-blue-soft);
+  text-decoration: none;
+}
+
+.admin-nav a.is-active {
+  color: var(--wyc-blue-dark);
+  background: var(--wyc-blue-soft);
+  border-color: rgba(46, 110, 167, 0.28);
+}
+
+.admin-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
@@ -659,6 +693,157 @@ select:focus {
   display: none !important;
 }
 
+.form-grid label.full {
+  grid-column: 1 / -1;
+}
+
+.radio-fieldset {
+  border: 1px solid var(--wyc-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.radio-fieldset legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.radio-row {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 400 !important;
+}
+
+.radio-row input {
+  width: auto;
+}
+
+.mode-pill,
+.leaderboard-flag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(27, 63, 97, 0.08);
+  color: #1b3f61;
+}
+
+.leaderboard-flag.yes {
+  background: rgba(90, 188, 142, 0.18);
+  color: #1f6b4a;
+}
+
+.leaderboard-flag.no {
+  background: rgba(245, 193, 97, 0.28);
+  color: #8a5a10;
+}
+
+.status-pill.draft {
+  background: rgba(107, 114, 128, 0.14);
+  color: #4b5563;
+}
+
+.status-pill.active,
+.status-pill.open {
+  background: rgba(46, 110, 167, 0.14);
+  color: var(--wyc-blue-dark);
+}
+
+.status-pill.completed {
+  background: rgba(90, 188, 142, 0.18);
+  color: #1f6b4a;
+}
+
+.status-pill.cancelled {
+  background: rgba(225, 41, 20, 0.12);
+  color: var(--wyc-danger);
+}
+
+.scoring-panel,
+.result-block,
+.standings-block {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--wyc-border);
+  border-radius: 10px;
+  background: rgba(244, 247, 250, 0.7);
+}
+
+.scoring-panel h4,
+.result-block h4 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.rank-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--wyc-border);
+}
+
+.rank-place {
+  font-weight: 700;
+  color: var(--wyc-blue-dark);
+  min-width: 1.5rem;
+}
+
+.rank-controls {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.inline-label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  max-width: 280px;
+}
+
+.ballot-details {
+  font-size: 0.9rem;
+}
+
+.ballot-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.correction-note {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+}
+
+.corrections-list {
+  margin-top: 1rem;
+}
+
+.game-manage-item {
+  gap: 0.85rem;
+}
+
 .site-footer {
   background: #1b3f61;
   color: rgba(255, 255, 255, 0.85);
@@ -705,6 +890,10 @@ select:focus {
 @media (max-width: 960px) {
   .admin-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-toolbar {
+    position: static;
   }
 }
 

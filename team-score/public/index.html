@@ -78,7 +78,9 @@
               <input type="date" id="leaderboard-date" />
             </label>
           </div>
-          <p class="section-lead" id="leaderboard-lead">Gesamtpunkte aller Teams – sortiert nach aktuellem Stand.</p>
+          <p class="section-lead" id="leaderboard-lead">
+            Nur abgeschlossene Spiele zählen – sortiert nach aktueller Gewinnlogik.
+          </p>
           <div id="leaderboard-list" class="leaderboard" role="list"></div>
         </div>
       </section>
@@ -91,7 +93,9 @@
               <h2 id="open-games-title">Offene Spiele</h2>
             </div>
           </div>
-          <p class="section-lead">Aufgaben und Spiele, für die noch Punkte vergeben werden.</p>
+          <p class="section-lead">
+            Aktive Spiele – Punkte fließen erst nach Abschluss in das Leaderboard ein.
+          </p>
           <div id="open-games-list" class="game-list"></div>
         </div>
       </section>
@@ -132,12 +136,94 @@
 
           <div id="admin-workspace" class="admin-workspace hidden" hidden>
             <div class="admin-toolbar">
+              <nav class="admin-nav" aria-label="Admin-Navigation">
+                <a href="#admin-games-section" data-admin-nav="admin-games-section">Spiele verwalten</a>
+                <a href="#admin-corrections-section" data-admin-nav="admin-corrections-section">Punkte korrigieren</a>
+                <a href="#admin-create-game-section" data-admin-nav="admin-create-game-section">Neues Spiel</a>
+                <a href="#admin-teams-section" data-admin-nav="admin-teams-section">Teams</a>
+                <a href="#admin-jurors-section" data-admin-nav="admin-jurors-section">Juroren</a>
+                <a href="#admin-settings-section" data-admin-nav="admin-settings-section">Einstellungen</a>
+              </nav>
               <button class="button quiet" type="button" id="admin-logout">Abmelden</button>
             </div>
 
+            <div class="admin-manage">
+              <article class="admin-card wide" id="admin-games-section">
+                <h3>Spiele verwalten</h3>
+                <p class="team-members">
+                  Punktevergabe je nach Bewertungsmodus – Leaderboard zählt nur abgeschlossene Spiele.
+                </p>
+                <div id="admin-games" class="manage-list"></div>
+              </article>
+
+              <article class="admin-card wide" id="admin-corrections-section">
+                <h3>Punkte korrigieren</h3>
+                <p class="team-members">
+                  Nur manuelle Anpassungen (Bonus, Strafe, Fehlerkorrektur) – getrennt von der Spielwertung.
+                </p>
+                <form id="correct-points-form" class="form-grid">
+                  <label>
+                    Team
+                    <select name="team_id" id="correct-team-select" required></select>
+                  </label>
+                  <label>
+                    Neue Gesamtpunkte
+                    <input name="total_points" type="number" step="1" placeholder="z. B. 120" />
+                  </label>
+                  <label>
+                    Oder Differenz (+/−)
+                    <input name="delta" type="number" step="1" placeholder="z. B. -5 oder 10" />
+                  </label>
+                  <label>
+                    Bearbeiter
+                    <input name="created_by" maxlength="80" placeholder="Max Mustermann" value="Admin" />
+                  </label>
+                  <label class="full">
+                    Notiz (optional)
+                    <textarea name="note" rows="3" maxlength="500" placeholder="Begründung der Korrektur"></textarea>
+                  </label>
+                  <button class="button primary" type="submit">Korrektur speichern</button>
+                </form>
+                <div id="admin-corrections" class="manage-list corrections-list"></div>
+              </article>
+            </div>
+
             <div class="admin-grid">
-              <article class="admin-card">
-                <h3>Neues Team</h3>
+              <article class="admin-card" id="admin-create-game-section">
+                <h3>Neues Spiel / Aufgabe</h3>
+                <form id="create-game-form" class="form-grid">
+                  <label>
+                    Titel
+                    <input name="title" required maxlength="120" />
+                  </label>
+                  <label>
+                    Beschreibung
+                    <textarea name="description" rows="3" maxlength="500"></textarea>
+                  </label>
+                  <label>
+                    Bewertungsmodus
+                    <select name="scoring_mode" required>
+                      <option value="placement">Platzierungswertung</option>
+                      <option value="jury">Jurorenentscheidung</option>
+                    </select>
+                  </label>
+                  <label>
+                    Status
+                    <select name="status">
+                      <option value="active" selected>Laufend</option>
+                      <option value="draft">Entwurf</option>
+                    </select>
+                  </label>
+                  <label>
+                    Max. Punkte (optional)
+                    <input name="max_points" type="number" min="0" step="1" />
+                  </label>
+                  <button class="button primary" type="submit">Spiel anlegen</button>
+                </form>
+              </article>
+
+              <article class="admin-card" id="admin-teams-section">
+                <h3>Teams</h3>
                 <form id="create-team-form" class="form-grid">
                   <label>
                     Teamname
@@ -154,83 +240,38 @@
                   </label>
                   <button class="button primary" type="submit">Team anlegen</button>
                 </form>
-              </article>
-
-              <article class="admin-card">
-                <h3>Neues Spiel / Aufgabe</h3>
-                <form id="create-game-form" class="form-grid">
-                  <label>
-                    Titel
-                    <input name="title" required maxlength="120" />
-                  </label>
-                  <label>
-                    Beschreibung
-                    <textarea name="description" rows="3" maxlength="500"></textarea>
-                  </label>
-                  <label>
-                    Max. Punkte (optional)
-                    <input name="max_points" type="number" min="0" step="1" />
-                  </label>
-                  <button class="button primary" type="submit">Spiel anlegen</button>
-                </form>
-              </article>
-
-              <article class="admin-card">
-                <h3>Punkte vergeben</h3>
-                <form id="award-score-form" class="form-grid">
-                  <label>
-                    Spiel
-                    <select name="game_id" id="score-game-select" required></select>
-                  </label>
-                  <label>
-                    Team
-                    <select name="team_id" id="score-team-select" required></select>
-                  </label>
-                  <label>
-                    Datum
-                    <input name="score_date" id="score-date-input" type="date" required />
-                  </label>
-                  <label>
-                    Punkte
-                    <input name="points" type="number" min="0" step="1" required />
-                  </label>
-                  <label>
-                    Notiz (optional)
-                    <input name="note" maxlength="200" />
-                  </label>
-                  <button class="button primary" type="submit">Punkte speichern</button>
-                </form>
-              </article>
-
-              <article class="admin-card">
-                <h3>Punkte korrigieren</h3>
-                <p class="team-members">Gesamtpunktzahl eines Teams manuell setzen (Spielpunkte bleiben erhalten).</p>
-                <form id="correct-points-form" class="form-grid">
-                  <label>
-                    Team
-                    <select name="team_id" id="correct-team-select" required></select>
-                  </label>
-                  <label>
-                    Neue Gesamtpunkte
-                    <input name="total_points" type="number" step="1" placeholder="z. B. 120" />
-                  </label>
-                  <label>
-                    Oder Differenz (+/−)
-                    <input name="delta" type="number" step="1" placeholder="z. B. -5 oder 10" />
-                  </label>
-                  <button class="button primary" type="submit">Korrektur speichern</button>
-                </form>
-              </article>
-            </div>
-
-            <div class="admin-manage">
-              <article class="admin-card wide">
-                <h3>Teams verwalten</h3>
                 <div id="admin-teams" class="manage-list"></div>
               </article>
-              <article class="admin-card wide">
-                <h3>Spiele verwalten</h3>
-                <div id="admin-games" class="manage-list"></div>
+
+              <article class="admin-card" id="admin-jurors-section">
+                <h3>Juroren</h3>
+                <form id="create-juror-form" class="form-grid">
+                  <label>
+                    Name
+                    <input name="name" required maxlength="80" placeholder="Juror A" />
+                  </label>
+                  <button class="button primary" type="submit">Juror anlegen</button>
+                </form>
+                <div id="admin-jurors" class="manage-list"></div>
+              </article>
+
+              <article class="admin-card" id="admin-settings-section">
+                <h3>Einstellungen</h3>
+                <p class="team-members">Globale Gewinnlogik für die gesamte Ranglistenberechnung.</p>
+                <form id="settings-form" class="form-grid">
+                  <fieldset class="radio-fieldset">
+                    <legend>Gewinnlogik</legend>
+                    <label class="radio-row">
+                      <input type="radio" name="winnerMode" value="highest-score" checked />
+                      Höchste Punktzahl gewinnt
+                    </label>
+                    <label class="radio-row">
+                      <input type="radio" name="winnerMode" value="lowest-score" />
+                      Niedrigste Punktzahl gewinnt
+                    </label>
+                  </fieldset>
+                  <button class="button primary" type="submit">Einstellungen speichern</button>
+                </form>
               </article>
             </div>
 

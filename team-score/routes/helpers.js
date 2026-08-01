@@ -1,6 +1,12 @@
 /**
  * Shared helpers for API routes.
  */
+const {
+  GAME_STATUSES,
+  NOTE_MAX_LENGTH,
+  SCORING_MODES,
+  normalizeGameStatus,
+} = require("../lib/constants");
 
 function badRequest(res, message) {
   return res.status(400).json({ error: message });
@@ -63,6 +69,61 @@ function todayDateString() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function parseOptionalNote(value, fieldName = "Notiz") {
+  const text = String(value ?? "").trim();
+  if (text.length > NOTE_MAX_LENGTH) {
+    throw new Error(`${fieldName} darf höchstens ${NOTE_MAX_LENGTH} Zeichen haben.`);
+  }
+  return text;
+}
+
+function parseGameStatus(value, { required = false } = {}) {
+  if (value === undefined || value === null || value === "") {
+    if (required) {
+      throw new Error("status ist erforderlich.");
+    }
+    return null;
+  }
+  const status = normalizeGameStatus(value);
+  if (!GAME_STATUSES.includes(status)) {
+    throw new Error(
+      `status muss eines von ${GAME_STATUSES.join(", ")} sein.`
+    );
+  }
+  return status;
+}
+
+function parseScoringMode(value, { required = false } = {}) {
+  if (value === undefined || value === null || value === "") {
+    if (required) {
+      throw new Error("scoring_mode ist erforderlich.");
+    }
+    return null;
+  }
+  const mode = String(value).trim().toLowerCase();
+  if (!SCORING_MODES.includes(mode)) {
+    throw new Error('scoring_mode muss "placement" oder "jury" sein.');
+  }
+  return mode;
+}
+
+function parseTeamIdList(value, fieldName = "team_ids") {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(`${fieldName} muss eine nicht-leere Liste von Team-IDs sein.`);
+  }
+  const ids = value.map((item) => {
+    const id = parseId(item);
+    if (!id) {
+      throw new Error(`${fieldName} enthält eine ungültige Team-ID.`);
+    }
+    return id;
+  });
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Jedes Team darf nur einmal vorkommen.");
+  }
+  return ids;
+}
+
 module.exports = {
   badRequest,
   notFound,
@@ -73,4 +134,8 @@ module.exports = {
   parseDate,
   parseHexColor,
   todayDateString,
+  parseOptionalNote,
+  parseGameStatus,
+  parseScoringMode,
+  parseTeamIdList,
 };

@@ -1,5 +1,7 @@
 const express = require("express");
 const { requireAdmin } = require("../middleware/auth");
+const { getWinnerMode } = require("../lib/settings");
+const { sortLeaderboardRows } = require("../lib/scoring");
 const {
   badRequest,
   notFound,
@@ -34,6 +36,7 @@ function createScoresRouter(db) {
 
   const deleteStmt = db.prepare("DELETE FROM score_entries WHERE id = ?");
 
+  // Kept for compatibility / emergency edits; primary scoring lives in Spiele verwalten.
   router.put("/", requireAdmin, (req, res) => {
     const gameId = parseId(req.body?.game_id);
     const teamId = parseId(req.body?.team_id);
@@ -94,19 +97,21 @@ function createLeaderboardRouter(db) {
     SELECT id, name FROM members WHERE team_id = ? ORDER BY name COLLATE NOCASE
   `);
 
+  // Only completed games contribute game_points.
   const totalLeaderboardStmt = db.prepare(`
     SELECT
       t.id,
       t.name,
       t.color,
       t.adjustment_points,
-      COALESCE(SUM(s.points), 0) AS game_points,
-      COALESCE(SUM(s.points), 0) + t.adjustment_points AS total_points,
-      COUNT(s.id) AS scored_games
+      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0) AS game_points,
+      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0)
+        + t.adjustment_points AS total_points,
+      COUNT(CASE WHEN g.status = 'completed' THEN s.id END) AS scored_games
     FROM teams t
     LEFT JOIN score_entries s ON s.team_id = t.id
+    LEFT JOIN games g ON g.id = s.game_id
     GROUP BY t.id
-    ORDER BY total_points DESC, t.name COLLATE NOCASE
   `);
 
   const dailyLeaderboardStmt = db.prepare(`
@@ -115,14 +120,14 @@ function createLeaderboardRouter(db) {
       t.name,
       t.color,
       0 AS adjustment_points,
-      COALESCE(SUM(s.points), 0) AS game_points,
-      COALESCE(SUM(s.points), 0) AS total_points,
-      COUNT(s.id) AS scored_games
+      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0) AS game_points,
+      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0) AS total_points,
+      COUNT(CASE WHEN g.status = 'completed' THEN s.id END) AS scored_games
     FROM teams t
     LEFT JOIN score_entries s
       ON s.team_id = t.id AND s.score_date = ?
+    LEFT JOIN games g ON g.id = s.game_id
     GROUP BY t.id
-    ORDER BY total_points DESC, t.name COLLATE NOCASE
   `);
 
   router.get("/", (req, res) => {
@@ -137,25 +142,30 @@ function createLeaderboardRouter(db) {
           ? parseDate(req.query.date || todayDateString(), "date")
           : null;
 
+      const winnerMode = getWinnerMode(db);
       const rows =
         mode === "daily"
           ? dailyLeaderboardStmt.all(date)
           : totalLeaderboardStmt.all();
 
+      const mapped = rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        color: row.color || "#2E6EA7",
+        game_points: Number(row.game_points) || 0,
+        adjustment_points: Number(row.adjustment_points) || 0,
+        total_points: Number(row.total_points) || 0,
+        scored_games: Number(row.scored_games) || 0,
+        members: membersStmt.all(row.id),
+      }));
+
+      const teams = sortLeaderboardRows(mapped, winnerMode);
+
       return res.json({
         mode,
         date,
-        teams: rows.map((row, index) => ({
-          rank: index + 1,
-          id: row.id,
-          name: row.name,
-          color: row.color || "#2E6EA7",
-          game_points: Number(row.game_points) || 0,
-          adjustment_points: Number(row.adjustment_points) || 0,
-          total_points: Number(row.total_points) || 0,
-          scored_games: Number(row.scored_games) || 0,
-          members: membersStmt.all(row.id),
-        })),
+        winnerMode,
+        teams,
       });
     } catch (error) {
       return badRequest(res, error.message);
