@@ -5,18 +5,24 @@
 const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
+const {
+  DEFAULT_WINNER_MODE,
+  DEFAULT_SCORING_MODE,
+  SETTINGS_KEYS,
+} = require("./lib/constants");
 
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "team-score.db");
 
 const DEFAULT_TEAM_COLORS = ["#2E6EA7", "#E12914", "#5ABC8E", "#F5C161", "#6B5B95", "#1B3F61"];
 
-function openDatabase() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+function openDatabase(dbPath = DB_PATH) {
+  const dir = path.dirname(dbPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 
-  const db = new Database(DB_PATH);
+  const db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
 
@@ -32,6 +38,15 @@ function tableColumns(db, tableName) {
 
 function hasColumn(db, tableName, columnName) {
   return tableColumns(db, tableName).some((column) => column.name === columnName);
+}
+
+function tableExists(db, tableName) {
+  const row = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
+    )
+    .get(tableName);
+  return Boolean(row);
 }
 
 function migrate(db) {
@@ -93,6 +108,7 @@ function migrate(db) {
   }
 
   migrateScoreDates(db);
+  migrateV2(db);
 }
 
 /**
@@ -163,6 +179,208 @@ function migrateScoreDates(db) {
   `);
 }
 
+function migrateV2(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS jurors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS score_corrections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      team_id INTEGER NOT NULL,
+      points INTEGER NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT 'Admin',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_corrections_team ON score_corrections(team_id);
+  `);
+
+  const winner = db
+    .prepare("SELECT value FROM settings WHERE key = ?")
+    .get(SETTINGS_KEYS.WINNER_MODE);
+  if (!winner) {
+    db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
+      SETTINGS_KEYS.WINNER_MODE,
+      DEFAULT_WINNER_MODE
+    );
+  }
+
+  migrateGamesV2(db);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS placement_rankings (
+      game_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      place INTEGER NOT NULL CHECK (place >= 1),
+      PRIMARY KEY (game_id, team_id),
+      UNIQUE (game_id, place),
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+      FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS jury_ballots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL,
+      juror_id INTEGER NOT NULL,
+      submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (game_id, juror_id),
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+      FOREIGN KEY (juror_id) REFERENCES jurors(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS jury_ballot_items (
+      ballot_id INTEGER NOT NULL,
+      team_id INTEGER NOT NULL,
+      place INTEGER NOT NULL CHECK (place >= 1),
+      PRIMARY KEY (ballot_id, team_id),
+      UNIQUE (ballot_id, place),
+      FOREIGN KEY (ballot_id) REFERENCES jury_ballots(id) ON DELETE CASCADE,
+      FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_jury_ballots_game ON jury_ballots(game_id);
+    CREATE INDEX IF NOT EXISTS idx_placement_game ON placement_rankings(game_id);
+  `);
+
+  migrateAdjustmentsToCorrections(db);
+}
+
+function migrateGamesV2(db) {
+  const needsRebuild =
+    !hasColumn(db, "games", "scoring_mode") ||
+    !gamesStatusAllowsV2(db);
+
+  if (!needsRebuild) {
+    return;
+  }
+
+  // Parent rebuild while score_entries still references games.
+  db.pragma("foreign_keys = OFF");
+  db.exec(`
+    CREATE TABLE games_v2 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active'
+        CHECK (status IN ('draft', 'active', 'completed', 'cancelled')),
+      scoring_mode TEXT NOT NULL DEFAULT 'placement'
+        CHECK (scoring_mode IN ('placement', 'jury')),
+      max_points INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+
+    INSERT INTO games_v2 (id, title, description, status, scoring_mode, max_points, created_at, completed_at)
+    SELECT
+      id,
+      title,
+      description,
+      CASE
+        WHEN status = 'open' THEN 'active'
+        WHEN status = 'completed' THEN 'completed'
+        WHEN status IN ('draft', 'active', 'cancelled') THEN status
+        ELSE 'active'
+      END,
+      '${DEFAULT_SCORING_MODE}',
+      max_points,
+      created_at,
+      completed_at
+    FROM games;
+
+    DROP TABLE games;
+    ALTER TABLE games_v2 RENAME TO games;
+    CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
+  `);
+  db.pragma("foreign_keys = ON");
+}
+
+function gamesStatusAllowsV2(db) {
+  // Detect old CHECK by trying to read sql; fallback: no scoring_mode means rebuild already handled.
+  const row = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'games'")
+    .get();
+  if (!row?.sql) {
+    return false;
+  }
+  return (
+    row.sql.includes("'draft'") &&
+    row.sql.includes("'active'") &&
+    row.sql.includes("scoring_mode")
+  );
+}
+
+function migrateAdjustmentsToCorrections(db) {
+  if (!tableExists(db, "score_corrections") || !hasColumn(db, "teams", "adjustment_points")) {
+    return;
+  }
+
+  const correctionCount = db
+    .prepare("SELECT COUNT(*) AS count FROM score_corrections")
+    .get().count;
+  if (correctionCount > 0) {
+    syncAllAdjustmentPoints(db);
+    return;
+  }
+
+  const teams = db
+    .prepare(
+      "SELECT id, adjustment_points FROM teams WHERE adjustment_points != 0"
+    )
+    .all();
+
+  const insert = db.prepare(`
+    INSERT INTO score_corrections (team_id, points, note, created_by)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  const migrate = db.transaction(() => {
+    for (const team of teams) {
+      insert.run(
+        team.id,
+        team.adjustment_points,
+        "Migrierte Gesamtkorrektur",
+        "System"
+      );
+    }
+  });
+  migrate();
+  syncAllAdjustmentPoints(db);
+}
+
+function syncTeamAdjustmentPoints(db, teamId) {
+  const sum = db
+    .prepare(
+      "SELECT COALESCE(SUM(points), 0) AS total FROM score_corrections WHERE team_id = ?"
+    )
+    .get(teamId).total;
+  db.prepare("UPDATE teams SET adjustment_points = ? WHERE id = ?").run(
+    sum,
+    teamId
+  );
+  return Number(sum) || 0;
+}
+
+function syncAllAdjustmentPoints(db) {
+  db.exec(`
+    UPDATE teams
+    SET adjustment_points = COALESCE((
+      SELECT SUM(points) FROM score_corrections WHERE team_id = teams.id
+    ), 0)
+  `);
+}
+
 function seedIfEmpty(db) {
   const teamCount = db.prepare("SELECT COUNT(*) AS count FROM teams").get().count;
   if (teamCount > 0) {
@@ -177,11 +395,12 @@ function seedIfEmpty(db) {
   const insertTeam = db.prepare("INSERT INTO teams (name, color) VALUES (?, ?)");
   const insertMember = db.prepare("INSERT INTO members (team_id, name) VALUES (?, ?)");
   const insertGame = db.prepare(
-    "INSERT INTO games (title, description, status, max_points, completed_at) VALUES (?, ?, ?, ?, ?)"
+    "INSERT INTO games (title, description, status, scoring_mode, max_points, completed_at) VALUES (?, ?, ?, ?, ?, ?)"
   );
   const insertScore = db.prepare(
     "INSERT INTO score_entries (game_id, team_id, points, note, score_date) VALUES (?, ?, ?, ?, ?)"
   );
+  const insertJuror = db.prepare("INSERT INTO jurors (name) VALUES (?)");
 
   const seed = db.transaction(() => {
     const blue = insertTeam.run("Team Blau", "#2E6EA7").lastInsertRowid;
@@ -195,10 +414,14 @@ function seedIfEmpty(db) {
     insertMember.run(green, "Elena");
     insertMember.run(green, "Felix");
 
-    const openGame = insertGame.run(
+    insertJuror.run("Juror A");
+    insertJuror.run("Juror B");
+
+    const activeGame = insertGame.run(
       "Bojenparcours",
       "Schnelligkeit und Präzision rund um die Marken.",
-      "open",
+      "active",
+      "placement",
       100,
       null
     ).lastInsertRowid;
@@ -207,6 +430,7 @@ function seedIfEmpty(db) {
       "Hafenstaffel",
       "Teamstaffel vom Steg zum Clubhaus.",
       "completed",
+      "placement",
       50,
       new Date().toISOString()
     ).lastInsertRowid;
@@ -214,11 +438,18 @@ function seedIfEmpty(db) {
     insertScore.run(doneGame, blue, 42, "Starker Schlusslauf", yesterday);
     insertScore.run(doneGame, red, 38, "", yesterday);
     insertScore.run(doneGame, green, 45, "Bestzeit", yesterday);
-    insertScore.run(openGame, blue, 20, "Zwischenstand", today);
-    insertScore.run(openGame, red, 15, "Zwischenstand", today);
+    // Active-game scores stay stored but are excluded from the leaderboard until completion.
+    insertScore.run(activeGame, blue, 20, "Zwischenstand", today);
+    insertScore.run(activeGame, red, 15, "Zwischenstand", today);
   });
 
   seed();
 }
 
-module.exports = { openDatabase, DB_PATH, DEFAULT_TEAM_COLORS };
+module.exports = {
+  openDatabase,
+  DB_PATH,
+  DEFAULT_TEAM_COLORS,
+  syncTeamAdjustmentPoints,
+  syncAllAdjustmentPoints,
+};

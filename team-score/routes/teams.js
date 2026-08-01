@@ -1,5 +1,6 @@
 const express = require("express");
 const { requireAdmin } = require("../middleware/auth");
+const { syncTeamAdjustmentPoints } = require("../db");
 const {
   badRequest,
   notFound,
@@ -7,6 +8,7 @@ const {
   trimRequired,
   parseInteger,
   parseHexColor,
+  parseOptionalNote,
 } = require("./helpers");
 
 const TEAM_COLOR_PRESETS = [
@@ -30,10 +32,12 @@ function createTeamsRouter(db) {
       t.color,
       t.created_at,
       t.adjustment_points,
-      COALESCE(SUM(s.points), 0) AS game_points,
-      COALESCE(SUM(s.points), 0) + t.adjustment_points AS total_points
+      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0) AS game_points,
+      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0)
+        + t.adjustment_points AS total_points
     FROM teams t
     LEFT JOIN score_entries s ON s.team_id = t.id
+    LEFT JOIN games g ON g.id = s.game_id
     GROUP BY t.id
     ORDER BY t.name COLLATE NOCASE
   `);
@@ -45,20 +49,27 @@ function createTeamsRouter(db) {
     ORDER BY name COLLATE NOCASE
   `);
 
+  const correctionsByTeamStmt = db.prepare(`
+    SELECT id, team_id, points, note, created_by, created_at, updated_at
+    FROM score_corrections
+    WHERE team_id = ?
+    ORDER BY created_at DESC, id DESC
+  `);
+
   const getTeamStmt = db.prepare(
     "SELECT id, name, color, created_at, adjustment_points FROM teams WHERE id = ?"
   );
-  const gamePointsStmt = db.prepare(
-    "SELECT COALESCE(SUM(points), 0) AS game_points FROM score_entries WHERE team_id = ?"
-  );
+  const gamePointsStmt = db.prepare(`
+    SELECT COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0) AS game_points
+    FROM score_entries s
+    JOIN games g ON g.id = s.game_id
+    WHERE s.team_id = ?
+  `);
   const insertTeamStmt = db.prepare(
     "INSERT INTO teams (name, color) VALUES (?, ?)"
   );
   const updateTeamStmt = db.prepare(
     "UPDATE teams SET name = ?, color = ? WHERE id = ?"
-  );
-  const updateAdjustmentStmt = db.prepare(
-    "UPDATE teams SET adjustment_points = ? WHERE id = ?"
   );
   const deleteTeamStmt = db.prepare("DELETE FROM teams WHERE id = ?");
   const insertMemberStmt = db.prepare(
@@ -67,6 +78,10 @@ function createTeamsRouter(db) {
   const deleteMemberStmt = db.prepare(
     "DELETE FROM members WHERE id = ? AND team_id = ?"
   );
+  const insertCorrectionStmt = db.prepare(`
+    INSERT INTO score_corrections (team_id, points, note, created_by)
+    VALUES (?, ?, ?, ?)
+  `);
 
   function nextDefaultColor() {
     const count = db.prepare("SELECT COUNT(*) AS count FROM teams").get().count;
@@ -91,6 +106,7 @@ function createTeamsRouter(db) {
       adjustment_points: adjustmentPoints,
       total_points: gamePoints + adjustmentPoints,
       members: membersByTeamStmt.all(team.id),
+      corrections: correctionsByTeamStmt.all(team.id),
     };
   }
 
@@ -168,6 +184,10 @@ function createTeamsRouter(db) {
     }
   });
 
+  /**
+   * Compatibility endpoint: creates a score_corrections row (+ optional note)
+   * and keeps teams.adjustment_points in sync.
+   */
   router.put("/:id/points", requireAdmin, (req, res) => {
     const id = parseId(req.params.id);
     if (!id) {
@@ -190,16 +210,24 @@ function createTeamsRouter(db) {
       }
 
       const gamePoints = Number(gamePointsStmt.get(id).game_points) || 0;
-      let nextAdjustment;
+      const currentAdjustment = Number(team.adjustment_points) || 0;
+      let delta;
       if (hasTotal) {
         const totalPoints = parseInteger(req.body.total_points, "total_points");
-        nextAdjustment = totalPoints - gamePoints;
+        delta = totalPoints - (gamePoints + currentAdjustment);
       } else {
-        const delta = parseInteger(req.body.delta, "delta");
-        nextAdjustment = (Number(team.adjustment_points) || 0) + delta;
+        delta = parseInteger(req.body.delta, "delta");
       }
 
-      updateAdjustmentStmt.run(nextAdjustment, id);
+      if (delta === 0) {
+        return res.json(enrichTeam(getTeamStmt.get(id)));
+      }
+
+      const note = parseOptionalNote(req.body?.note);
+      const createdBy = String(req.body?.created_by ?? "Admin").trim() || "Admin";
+
+      insertCorrectionStmt.run(id, delta, note, createdBy);
+      syncTeamAdjustmentPoints(db, id);
       return res.json(enrichTeam(getTeamStmt.get(id)));
     } catch (error) {
       return badRequest(res, error.message);

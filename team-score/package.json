@@ -1,12 +1,13 @@
 {
   "name": "wyc-team-score",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "WYC Team Score Platform – Leaderboard für Teams und Spiele",
   "private": true,
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test test/**/*.test.js"
   },
   "engines": {
     "node": ">=18"

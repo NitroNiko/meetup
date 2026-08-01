@@ -3,10 +3,15 @@
 Team-Score-Plattform mit Leaderboard für den Württembergischen Yacht-Club e.V.
 Eigenständige App unter `team-score/` – die ImmunoQuiz-App im Repository-Root bleibt unverändert.
 
-## Features
+## Features (v2)
 
 - Öffentliche Frontpage mit Leaderboard sowie offenen und abgeschlossenen Spielen
-- Admin-Bereich (PIN) zum Anlegen von Teams, Mitgliedern, Spielen und Punkten
+- **Nur abgeschlossene Spiele** fließen in die Gesamtwertung ein
+- Globale **Gewinnlogik**: höchste oder niedrigste Punktzahl gewinnt
+- Spiel-Bewertungsmodi: **Platzierungswertung** und **Jurorenentscheidung**
+- Live-Zwischenstand der Jurorenwertung (nur Admin)
+- Punktekorrekturen mit optionaler **Notiz** (getrennt von der Spielwertung)
+- Kompakte Admin-Navigation zwischen Verwaltungsbereichen
 - Persistenz in SQLite – gemeinsam nutzbar über mehrere Geräte im Netzwerk
 - Design angelehnt an [wyc-fn.de](https://www.wyc-fn.de) (Club-Blau, IBM Plex Sans, Logo & Hero)
 
@@ -30,6 +35,13 @@ Dann öffnen: [http://localhost:3000](http://localhost:3000)
 | `HOST`      | `0.0.0.0` | Bind-Adresse                          |
 | `ADMIN_PIN` | `1234`    | PIN für den Admin                     |
 | `NODE_ENV`  | –         | `production` setzt Secure-Cookie      |
+
+### Tests
+
+```bash
+cd team-score
+npm test
+```
 
 ## Deployment
 
@@ -80,15 +92,24 @@ cloudflared tunnel --url http://127.0.0.1:3000
 
 ## API (Kurzüberblick)
 
-- `GET /api/leaderboard` – Rangliste
-- `GET /api/teams` – Teams inkl. Mitglieder
-- `GET /api/games?status=open|completed` – Spiele mit Punkteständen
+- `GET /api/leaderboard` – Rangliste (`winnerMode`, nur `completed`-Spiele)
+- `GET/PUT /api/settings/leaderboard` – globale Gewinnlogik
+- `GET /api/teams` – Teams inkl. Mitglieder und Korrekturen
+- `GET /api/games?status=active|completed|draft|cancelled` – Spiele mit Wertung
+- `PUT /api/games/:id/placement` – Platzierungsreihenfolge speichern
+- `PUT /api/games/:id/jury-rankings` – Jurorenbewertung speichern
+- `GET /api/games/:id/standings` – Live-Zwischenstand (Admin)
+- `GET/POST/PUT/DELETE /api/jurors` – Jurorenverwaltung
+- `GET/POST/PUT/DELETE /api/corrections` – Punktekorrekturen inkl. Notiz
 - `POST /api/admin/login` – `{ "pin": "…" }`
-- Schreibende Endpunkte (Teams/Spiele/Scores) erfordern Admin-Session-Cookie
+- Schreibende Endpunkte erfordern Admin-Session-Cookie
 
 ## Daten
 
 SQLite-Datei: `data/team-score.db` (wird beim ersten Start angelegt und mit Demo-Daten befüllt).
+
+Spielstatus: `draft` | `active` | `completed` | `cancelled`  
+Bewertungsmodus: `placement` | `jury`
 
 ## Design / Assets
 
