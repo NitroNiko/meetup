@@ -1,9 +1,11 @@
 /**
- * WYC Team Score – frontend controller (v2).
- * Fetches public data and drives the admin workspace when authenticated.
+ * WYC Team Score – frontend controller (v2.1).
  */
 (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
+  const DRAFT_KEY = "wyc-team-score-drafts-v1";
+  const HEALTH_THROTTLE_MS = 30_000;
+  const TOAST_MS = 1000;
 
   const COLOR_PRESETS = [
     "#2E6EA7",
@@ -32,10 +34,12 @@
     leaderboard: [],
     teams: [],
     games: [],
-    jurors: [],
     corrections: [],
     placementDrafts: {},
     juryDrafts: {},
+    connection: "offline",
+    lastHealthAt: 0,
+    healthInFlight: false,
   };
 
   function todayLocal() {
@@ -69,36 +73,6 @@
     });
   }
 
-  async function api(path, options = {}) {
-    const response = await fetch(path, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-      credentials: "same-origin",
-      ...options,
-    });
-
-    let payload = null;
-    const text = await response.text();
-    if (text) {
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = { error: text };
-      }
-    }
-
-    if (!response.ok) {
-      const message = payload?.error || `Anfrage fehlgeschlagen (${response.status})`;
-      const error = new Error(message);
-      error.status = response.status;
-      throw error;
-    }
-
-    return payload;
-  }
-
   function escapeHtml(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -115,15 +89,6 @@
     return members.map((m) => m.name).join(", ");
   }
 
-  function showMessage(el, text, isError = false) {
-    if (!el) {
-      return;
-    }
-    el.hidden = false;
-    el.textContent = text;
-    el.classList.toggle("error", Boolean(isError));
-  }
-
   function statusLabel(status) {
     return STATUS_LABELS[status] || status;
   }
@@ -131,6 +96,266 @@
   function scoringLabel(mode) {
     return mode === "jury" ? "Jurorenentscheidung" : "Platzierungswertung";
   }
+
+  function canPersist() {
+    return state.connection === "online";
+  }
+
+  /* ---------- Toasts ---------- */
+
+  function showToast(text, type = "success") {
+    const root = $("#toast-root");
+    if (!root) {
+      return;
+    }
+    const el = document.createElement("div");
+    el.className = `toast ${type}`;
+    el.textContent = text;
+    root.appendChild(el);
+    window.setTimeout(() => {
+      el.remove();
+    }, TOAST_MS);
+  }
+
+  /* ---------- Draft buffer ---------- */
+
+  function readDrafts() {
+    try {
+      return JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function writeDrafts(drafts) {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+  }
+
+  function saveFormDraft(form) {
+    if (!form?.dataset?.draft) {
+      return;
+    }
+    const drafts = readDrafts();
+    const data = {};
+    new FormData(form).forEach((value, key) => {
+      data[key] = String(value);
+    });
+    drafts[form.dataset.draft] = data;
+    writeDrafts(drafts);
+  }
+
+  function restoreFormDraft(form) {
+    if (!form?.dataset?.draft) {
+      return;
+    }
+    const data = readDrafts()[form.dataset.draft];
+    if (!data) {
+      return;
+    }
+    Object.entries(data).forEach(([key, value]) => {
+      const field = form.elements.namedItem(key);
+      if (!field) {
+        return;
+      }
+      if (field instanceof RadioNodeList) {
+        field.value = value;
+      } else if (field.type === "radio" || field.type === "checkbox") {
+        field.checked = field.value === value;
+      } else {
+        field.value = value;
+      }
+    });
+  }
+
+  function clearFormDraft(form) {
+    if (!form?.dataset?.draft) {
+      return;
+    }
+    const drafts = readDrafts();
+    delete drafts[form.dataset.draft];
+    writeDrafts(drafts);
+  }
+
+  function restoreAllDrafts() {
+    document.querySelectorAll("form[data-draft]").forEach(restoreFormDraft);
+  }
+
+  /* ---------- Connection ---------- */
+
+  function setConnection(status, { toast } = {}) {
+    const prev = state.connection;
+    state.connection = status;
+    document.body.classList.toggle("backend-offline", status === "offline" || status === "waking-up");
+    document.body.classList.toggle("backend-unauthorized", status === "unauthorized");
+
+    const pill = $("#connection-pill");
+    const pillText = $("#connection-pill-text");
+    const banner = $("#connection-banner");
+    const bannerText = $("#connection-banner-text");
+    const loginBtn = $("#connection-login-btn");
+    const offlineWarning = $("#admin-offline-warning");
+
+    const labels = {
+      online: "Backend verbunden",
+      "waking-up": "Verbindung wird hergestellt…",
+      offline: "Backend nicht erreichbar",
+      unauthorized: "Anmeldung erforderlich",
+    };
+
+    pill.className = `connection-pill ${
+      status === "waking-up" ? "waking" : status === "online" ? "online" : status
+    }`;
+    pillText.textContent = labels[status] || status;
+
+    const showBanner = status !== "online";
+    banner.hidden = !showBanner;
+    banner.classList.toggle("hidden", !showBanner);
+    banner.classList.toggle("waking", status === "waking-up");
+    banner.classList.toggle("unauthorized", status === "unauthorized");
+    bannerText.textContent =
+      status === "unauthorized"
+        ? "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an."
+        : status === "waking-up"
+          ? "Der Server wird gerade gestartet. Bitte kurz warten…"
+          : "Backend aktuell nicht erreichbar.";
+    loginBtn.hidden = status !== "unauthorized";
+
+    if (offlineWarning) {
+      const showWarn = status !== "online" && status !== "unauthorized";
+      offlineWarning.hidden = !showWarn;
+      offlineWarning.classList.toggle("hidden", !showWarn);
+    }
+
+    if (toast) {
+      if (status === "online" && prev !== "online") {
+        showToast("Backend-Verbindung wiederhergestellt.", "success");
+      } else if (status === "offline" && prev !== "offline") {
+        showToast("Backend aktuell nicht erreichbar.", "error");
+      } else if (status === "unauthorized") {
+        showToast("Bitte erneut anmelden.", "error");
+      }
+    }
+  }
+
+  async function checkHealth({ force = false, toast = false } = {}) {
+    const now = Date.now();
+    if (!force && now - state.lastHealthAt < HEALTH_THROTTLE_MS) {
+      return state.connection;
+    }
+    if (state.healthInFlight) {
+      return state.connection;
+    }
+
+    state.healthInFlight = true;
+    if (state.connection === "offline") {
+      setConnection("waking-up");
+    }
+
+    try {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 12_000);
+      const response = await fetch("/api/health", {
+        credentials: "same-origin",
+        signal: controller.signal,
+      });
+      window.clearTimeout(timer);
+      state.lastHealthAt = Date.now();
+      if (!response.ok) {
+        setConnection("offline", { toast });
+        return state.connection;
+      }
+      setConnection("online", { toast });
+      return state.connection;
+    } catch {
+      state.lastHealthAt = Date.now();
+      setConnection("offline", { toast });
+      return state.connection;
+    } finally {
+      state.healthInFlight = false;
+    }
+  }
+
+  function bindActivityWakeups() {
+    const wake = () => {
+      checkHealth({ toast: true });
+    };
+    ["click", "focusin", "keydown", "scroll"].forEach((eventName) => {
+      document.addEventListener(eventName, wake, { passive: true });
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        checkHealth({ force: true, toast: true });
+      }
+    });
+  }
+
+  /* ---------- API ---------- */
+
+  async function api(path, options = {}) {
+    if (!options.skipHealthGate && options.method && options.method !== "GET") {
+      const status = await checkHealth({ force: true, toast: true });
+      if (status !== "online") {
+        const error = new Error(
+          status === "unauthorized"
+            ? "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an."
+            : "Backend aktuell nicht erreichbar. Bitte warte und versuche es erneut."
+        );
+        error.status = status === "unauthorized" ? 401 : 0;
+        throw error;
+      }
+    }
+
+    let response;
+    try {
+      response = await fetch(path, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        },
+        credentials: "same-origin",
+        ...options,
+      });
+    } catch {
+      setConnection("offline", { toast: true });
+      const error = new Error("Backend aktuell nicht erreichbar.");
+      error.status = 0;
+      throw error;
+    }
+
+    let payload = null;
+    const text = await response.text();
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = { error: text };
+      }
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      setConnection("unauthorized", { toast: true });
+      setAuthUi(false);
+      const error = new Error(
+        payload?.error || "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an."
+      );
+      error.status = response.status;
+      throw error;
+    }
+
+    if (!response.ok) {
+      const message = payload?.error || `Anfrage fehlgeschlagen (${response.status})`;
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    if (state.connection !== "online") {
+      setConnection("online");
+    }
+    return payload;
+  }
+
+  /* ---------- Domain helpers ---------- */
 
   function openGames() {
     return state.games.filter((game) =>
@@ -149,23 +374,25 @@
         .slice()
         .sort((a, b) => a.place - b.place)
         .map((row) => row.team_id);
-      state.placementDrafts[gameId] =
-        fromSaved.length === state.teams.length
-          ? fromSaved
-          : state.teams.map((team) => team.id);
+      state.placementDrafts[gameId] = {
+        teamIds:
+          fromSaved.length === state.teams.length
+            ? fromSaved
+            : state.teams.map((team) => team.id),
+        evaluationDate: game?.evaluation_date || todayLocal(),
+      };
     }
     return state.placementDrafts[gameId];
   }
 
   function ensureJuryDraft(gameId) {
     if (!state.juryDrafts[gameId]) {
+      const game = state.games.find((item) => item.id === gameId);
       state.juryDrafts[gameId] = {
-        jurorId: state.jurors[0]?.id || "",
+        jurorName: "",
         teamIds: state.teams.map((team) => team.id),
+        evaluationDate: game?.evaluation_date || todayLocal(),
       };
-    }
-    if (!state.juryDrafts[gameId].jurorId && state.jurors[0]) {
-      state.juryDrafts[gameId].jurorId = state.jurors[0].id;
     }
     return state.juryDrafts[gameId];
   }
@@ -202,7 +429,7 @@
         : "höchste Punktzahl gewinnt";
 
     lead.textContent = isDaily
-      ? `Punkte vom ${formatDisplayDate(state.leaderboardDate)} aus abgeschlossenen Spielen (${logic}), ohne Korrekturen.`
+      ? `Punkte vom ${formatDisplayDate(state.leaderboardDate)} aus abgeschlossenen Spielen und Korrekturen (${logic}).`
       : `Nur abgeschlossene Spiele + Korrekturen – ${logic}.`;
   }
 
@@ -229,25 +456,29 @@
       .join("");
   }
 
-  function renderGameCard(game) {
-    const scores = game.scores?.length
-      ? `<table class="score-table">
-          <thead><tr><th>Team</th><th>Datum</th><th>Punkte</th><th>Notiz</th></tr></thead>
-          <tbody>
-            ${game.scores
-              .map(
-                (score) => `<tr>
-                  <td><span class="team-swatch" style="background:${escapeHtml(score.team_color || "#2E6EA7")}"></span>${escapeHtml(score.team_name)}</td>
-                  <td>${escapeHtml(formatDisplayDate(score.score_date) || "—")}</td>
-                  <td>${score.points}</td>
-                  <td>${escapeHtml(score.note || "—")}</td>
-                </tr>`
-              )
-              .join("")}
-          </tbody>
-        </table>`
-      : `<p class="team-members">Noch keine Punkte vergeben.</p>`;
+  function renderScoreTable(scores, { showDate = true } = {}) {
+    if (!scores?.length) {
+      return `<p class="team-members">Noch keine Punkte vergeben.</p>`;
+    }
+    return `<table class="score-table">
+      <thead><tr><th>Platz</th><th>Team</th>${showDate ? "<th>Datum</th>" : ""}<th>Punkte</th><th>Notiz</th></tr></thead>
+      <tbody>
+        ${scores
+          .map(
+            (score, index) => `<tr class="${index === 0 ? "is-leader" : ""}">
+              <td>${score.rank || index + 1}</td>
+              <td><span class="team-swatch" style="background:${escapeHtml(score.team_color || "#2E6EA7")}"></span>${escapeHtml(score.team_name)}</td>
+              ${showDate ? `<td>${escapeHtml(formatDisplayDate(score.score_date) || "—")}</td>` : ""}
+              <td>${score.points}</td>
+              <td>${escapeHtml(score.note || "—")}</td>
+            </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+  }
 
+  function renderGameCard(game) {
     const max =
       game.max_points != null ? `<span>Max. ${game.max_points} Punkte</span>` : "";
     const counts = game.counts_for_leaderboard
@@ -263,7 +494,7 @@
         ${counts}
       </div>
       <p class="team-members">${escapeHtml(game.description || "Keine Beschreibung.")}</p>
-      ${scores}
+      ${renderScoreTable(game.scores)}
     </article>`;
   }
 
@@ -288,7 +519,6 @@
     if (!root || !colorInput) {
       return;
     }
-
     root.innerHTML = COLOR_PRESETS.map(
       (color) =>
         `<button type="button" class="color-preset ${colorInput.value.toUpperCase() === color ? "is-selected" : ""}" data-color="${color}" style="background:${color}" aria-label="Farbe ${color}"></button>`
@@ -325,14 +555,11 @@
             </span>`
           )
           .join("");
-
         const adjustment =
           team.adjustment_points !== 0
             ? ` · Korrektur ${team.adjustment_points > 0 ? "+" : ""}${team.adjustment_points}`
             : "";
-
         const color = team.color || "#2E6EA7";
-
         return `<div class="manage-item" data-team-id="${team.id}">
           <div class="manage-head">
             <div>
@@ -340,18 +567,18 @@
               <p class="team-members">${team.total_points} Punkte gesamt (${team.game_points} aus Spielen${adjustment})</p>
             </div>
             <div class="manage-actions">
-              <button class="button quiet small" type="button" data-action="rename-team" data-team-id="${team.id}" data-name="${escapeHtml(team.name)}">Umbenennen</button>
-              <button class="button danger small" type="button" data-action="delete-team" data-team-id="${team.id}">Löschen</button>
+              <button class="button quiet small save-gated" type="button" data-action="rename-team" data-team-id="${team.id}" data-name="${escapeHtml(team.name)}">Umbenennen</button>
+              <button class="button danger small save-gated" type="button" data-action="delete-team" data-team-id="${team.id}">Löschen</button>
             </div>
           </div>
           <div class="member-chips">${chips || `<span class="team-members">Keine Mitglieder</span>`}</div>
           <form class="inline-form" data-action="set-color" data-team-id="${team.id}">
             <input class="inline-color" name="color" type="color" value="${escapeHtml(color)}" aria-label="Teamfarbe" />
-            <button class="button quiet small" type="submit">Farbe speichern</button>
+            <button class="button quiet small save-gated" type="submit">Farbe speichern</button>
           </form>
           <form class="inline-form" data-action="add-member" data-team-id="${team.id}">
             <input name="name" placeholder="Neues Mitglied" required maxlength="80" />
-            <button class="button quiet small" type="submit">Hinzufügen</button>
+            <button class="button quiet small save-gated" type="submit">Hinzufügen</button>
           </form>
         </div>`;
       })
@@ -389,7 +616,7 @@
     const rows = (jury.standings || [])
       .filter((row) => row.average != null)
       .map(
-        (row) => `<tr>
+        (row) => `<tr class="${row.place === 1 ? "is-leader" : ""}">
           <td>${row.place}</td>
           <td><span class="team-swatch" style="background:${escapeHtml(row.team_color || "#2E6EA7")}"></span>${escapeHtml(row.team_name)}</td>
           <td>${Number(row.average).toFixed(2)}</td>
@@ -398,7 +625,7 @@
       .join("");
 
     return `<div class="standings-block">
-      <p class="team-members"><strong>${jury.submitted} von ${jury.expected}</strong> Juroren haben abgestimmt.</p>
+      <p class="team-members"><strong>${jury.submitted}</strong> Jurorenbewertung${jury.submitted === 1 ? "" : "en"} abgegeben.</p>
       ${
         rows
           ? `<table class="score-table">
@@ -409,20 +636,22 @@
       }
       ${
         jury.ballots?.length
-          ? `<details class="ballot-details">
+          ? `<details class="ballot-details" open>
               <summary>Abgegebene Bewertungen</summary>
               <ul class="ballot-list">
                 ${jury.ballots
                   .map(
                     (ballot) => `<li>
-                      <strong>${escapeHtml(ballot.juror_name)}</strong>
-                      <span class="team-members">${formatDateTime(ballot.updated_at)}</span>
-                      <ol>${(ballot.rankings || [])
-                        .map(
-                          (rank) =>
-                            `<li>${escapeHtml(rank.team_name)}</li>`
-                        )
-                        .join("")}</ol>
+                      <div class="manage-head">
+                        <div>
+                          <strong>${escapeHtml(ballot.juror_name)}</strong>
+                          <span class="team-members">Datum: ${escapeHtml(formatDisplayDate(ballot.evaluation_date))} · ${escapeHtml(formatDateTime(ballot.updated_at))}</span>
+                          <ol>${(ballot.rankings || [])
+                            .map((rank) => `<li>${escapeHtml(rank.team_name)}</li>`)
+                            .join("")}</ol>
+                        </div>
+                        <button class="button danger small save-gated" type="button" data-action="delete-jury" data-game-id="${game.id}" data-ballot-id="${ballot.id}">Löschen</button>
+                      </div>
                     </li>`
                   )
                   .join("")}
@@ -431,26 +660,6 @@
           : ""
       }
     </div>`;
-  }
-
-  function renderGameScoresSummary(game) {
-    if (!game.scores?.length) {
-      return `<p class="team-members">Noch keine Spielpunkte berechnet.</p>`;
-    }
-    return `<table class="score-table">
-      <thead><tr><th>Team</th><th>Punkte</th><th>Notiz</th></tr></thead>
-      <tbody>
-        ${game.scores
-          .map(
-            (score) => `<tr>
-              <td><span class="team-swatch" style="background:${escapeHtml(score.team_color || "#2E6EA7")}"></span>${escapeHtml(score.team_name)}</td>
-              <td>${score.points}</td>
-              <td>${escapeHtml(score.note || "—")}</td>
-            </tr>`
-          )
-          .join("")}
-      </tbody>
-    </table>`;
   }
 
   function renderAdminGames() {
@@ -462,8 +671,7 @@
 
     root.innerHTML = state.games
       .map((game) => {
-        const nextStatus =
-          game.status === "completed" ? "active" : "completed";
+        const nextStatus = game.status === "completed" ? "active" : "completed";
         const nextLabel =
           game.status === "completed" ? "Wieder öffnen" : "Abschließen";
         const countsNote = game.counts_for_leaderboard
@@ -475,35 +683,32 @@
           const draft = ensurePlacementDraft(game.id);
           scoringUi = `<div class="scoring-panel">
             <h4>Platzierungswertung</h4>
-            <p class="team-members">Teams in Reihenfolge bringen (Platz 1 oben). Punkte werden automatisch vergeben.</p>
-            ${renderRankList(draft, game.id, "placement")}
-            <button class="button primary small" type="button" data-action="save-placement" data-game-id="${game.id}">Reihenfolge speichern</button>
+            <p class="team-members">Teams in Reihenfolge bringen (Platz 1 oben). Sortierung der Spielpunkte folgt der Gewinnlogik.</p>
+            <label class="inline-label">
+              Bewertungsdatum
+              <input type="date" data-action="placement-date" data-game-id="${game.id}" value="${escapeHtml(draft.evaluationDate)}" />
+            </label>
+            ${renderRankList(draft.teamIds, game.id, "placement")}
+            <button class="button primary small save-gated" type="button" data-action="save-placement" data-game-id="${game.id}">Reihenfolge speichern</button>
           </div>`;
         } else {
           const draft = ensureJuryDraft(game.id);
-          const jurorOptions = state.jurors
-            .map(
-              (juror) =>
-                `<option value="${juror.id}" ${String(draft.jurorId) === String(juror.id) ? "selected" : ""}>${escapeHtml(juror.name)}</option>`
-            )
-            .join("");
           scoringUi = `<div class="scoring-panel">
             <h4>Jurorenentscheidung</h4>
-            <p class="team-members">Juror wählt Rangfolge – Zwischenstand wird serverseitig berechnet.</p>
+            <p class="team-members">Jurorname und Rangfolge erfassen – Zwischenstand wird serverseitig berechnet.</p>
             <label class="inline-label">
               Juror
-              <select data-action="jury-juror" data-game-id="${game.id}">
-                <option value="">Bitte wählen</option>
-                ${jurorOptions}
-              </select>
+              <input type="text" data-action="jury-name" data-game-id="${game.id}" value="${escapeHtml(draft.jurorName)}" maxlength="80" required placeholder="Max Mustermann" />
+            </label>
+            <label class="inline-label">
+              Bewertungsdatum
+              <input type="date" data-action="jury-date" data-game-id="${game.id}" value="${escapeHtml(draft.evaluationDate)}" />
             </label>
             ${renderRankList(draft.teamIds, game.id, "jury")}
-            <button class="button primary small" type="button" data-action="save-jury" data-game-id="${game.id}">Bewertung speichern</button>
+            <button class="button primary small save-gated" type="button" data-action="save-jury" data-game-id="${game.id}">Bewertung speichern</button>
             ${renderJuryStandings(game)}
           </div>`;
         }
-
-        const relatedCorrections = state.corrections.filter(() => false);
 
         return `<div class="manage-item game-manage-item" data-game-id="${game.id}">
           <div class="manage-head">
@@ -517,44 +722,19 @@
               </div>
             </div>
             <div class="manage-actions">
-              <button class="button quiet small" type="button" data-action="toggle-game" data-game-id="${game.id}" data-status="${nextStatus}">${nextLabel}</button>
-              <button class="button quiet small" type="button" data-action="set-status" data-game-id="${game.id}" data-status="cancelled">Abbrechen</button>
-              <button class="button danger small" type="button" data-action="delete-game" data-game-id="${game.id}">Löschen</button>
+              <button class="button quiet small save-gated" type="button" data-action="toggle-game" data-game-id="${game.id}" data-status="${nextStatus}">${nextLabel}</button>
+              <button class="button quiet small save-gated" type="button" data-action="set-status" data-game-id="${game.id}" data-status="cancelled">Abbrechen</button>
+              <button class="button danger small save-gated" type="button" data-action="delete-game" data-game-id="${game.id}">Löschen</button>
             </div>
           </div>
           ${scoringUi}
           <div class="result-block">
-            <h4>Spielpunkte</h4>
-            ${renderGameScoresSummary(game)}
-            ${
-              relatedCorrections.length
-                ? ""
-                : `<p class="team-members">Manuelle Korrekturen siehe Bereich „Punkte korrigieren“.</p>`
-            }
+            <h4>Spielpunkte (gemäß Gewinnlogik)</h4>
+            ${renderScoreTable(game.scores, { showDate: true })}
+            <p class="team-members">Manuelle Korrekturen siehe Bereich „Punkte korrigieren“.</p>
           </div>
         </div>`;
       })
-      .join("");
-  }
-
-  function renderAdminJurors() {
-    const root = $("#admin-jurors");
-    if (!state.jurors.length) {
-      root.innerHTML = `<div class="empty-state">Noch keine Juroren angelegt.</div>`;
-      return;
-    }
-    root.innerHTML = state.jurors
-      .map(
-        (juror) => `<div class="manage-item">
-          <div class="manage-head">
-            <strong>${escapeHtml(juror.name)}</strong>
-            <div class="manage-actions">
-              <button class="button quiet small" type="button" data-action="rename-juror" data-juror-id="${juror.id}" data-name="${escapeHtml(juror.name)}">Umbenennen</button>
-              <button class="button danger small" type="button" data-action="delete-juror" data-juror-id="${juror.id}">Löschen</button>
-            </div>
-          </div>
-        </div>`
-      )
       .join("");
   }
 
@@ -568,6 +748,10 @@
             `<option value="${team.id}">${escapeHtml(team.name)} (${team.total_points} Pkt.)</option>`
         )
         .join("");
+    }
+    const dateInput = $("#correct-date-input");
+    if (dateInput && !dateInput.value) {
+      dateInput.value = todayLocal();
     }
 
     if (!state.corrections.length) {
@@ -583,13 +767,13 @@
             <div>
               <strong>${sign}${item.points} Punkte</strong>
               <p class="team-members">
-                Team: ${escapeHtml(item.team_name)} · Bearbeitet von: ${escapeHtml(item.created_by)} · Datum: ${escapeHtml(formatDateTime(item.created_at))}
+                Team: ${escapeHtml(item.team_name)} · Bewertungsdatum: ${escapeHtml(formatDisplayDate(item.evaluation_date))} · Bearbeitet von: ${escapeHtml(item.created_by)} · Erfasst: ${escapeHtml(formatDateTime(item.created_at))}
               </p>
               <p class="correction-note"><strong>Notiz:</strong> ${escapeHtml(item.note || "—")}</p>
             </div>
             <div class="manage-actions">
-              <button class="button quiet small" type="button" data-action="edit-correction" data-correction-id="${item.id}">Bearbeiten</button>
-              <button class="button danger small" type="button" data-action="delete-correction" data-correction-id="${item.id}">Löschen</button>
+              <button class="button quiet small save-gated" type="button" data-action="edit-correction" data-correction-id="${item.id}">Bearbeiten</button>
+              <button class="button danger small save-gated" type="button" data-action="delete-correction" data-correction-id="${item.id}">Löschen</button>
             </div>
           </div>
         </div>`;
@@ -616,11 +800,9 @@
     const sections = [...links]
       .map((link) => document.getElementById(link.dataset.adminNav))
       .filter(Boolean);
-
     if (!links.length || !("IntersectionObserver" in window)) {
       return;
     }
-
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -638,7 +820,6 @@
       },
       { rootMargin: "-20% 0px -55% 0px", threshold: [0.15, 0.4, 0.7] }
     );
-
     sections.forEach((section) => observer.observe(section));
   }
 
@@ -649,10 +830,12 @@
         : "/api/leaderboard?mode=total";
 
     const [leaderboardPayload, teams, games, settings] = await Promise.all([
-      api(leaderboardQuery),
-      api("/api/teams"),
-      api(state.authenticated ? "/api/games?admin=1" : "/api/games"),
-      api("/api/settings/leaderboard"),
+      api(leaderboardQuery, { skipHealthGate: true }),
+      api("/api/teams", { skipHealthGate: true }),
+      api(state.authenticated ? "/api/games?admin=1" : "/api/games", {
+        skipHealthGate: true,
+      }),
+      api("/api/settings/leaderboard", { skipHealthGate: true }),
     ]);
 
     state.leaderboard = Array.isArray(leaderboardPayload)
@@ -668,23 +851,17 @@
     renderGames();
 
     if (state.authenticated) {
-      const [jurors, corrections] = await Promise.all([
-        api("/api/jurors"),
-        api("/api/corrections"),
-      ]);
-      state.jurors = jurors;
-      state.corrections = corrections;
+      state.corrections = await api("/api/corrections", { skipHealthGate: true });
       renderSettingsForm();
       renderAdminTeams();
       renderAdminGames();
-      renderAdminJurors();
       renderAdminCorrections();
       renderColorPresets();
     }
   }
 
   async function refreshAuth() {
-    const status = await api("/api/admin/status");
+    const status = await api("/api/admin/status", { skipHealthGate: true });
     setAuthUi(Boolean(status.authenticated));
   }
 
@@ -693,17 +870,38 @@
     if (dateInput) {
       dateInput.value = state.leaderboardDate;
     }
+    const correctDate = $("#correct-date-input");
+    if (correctDate) {
+      correctDate.value = todayLocal();
+    }
     renderColorPresets();
     setupAdminNav();
+    bindActivityWakeups();
+    restoreAllDrafts();
+    await checkHealth({ force: true });
     await refreshAuth();
     await refreshPublicData();
   }
 
+  /* ---------- Events ---------- */
+
+  $("#connection-login-btn").addEventListener("click", () => {
+    document.getElementById("admin")?.scrollIntoView({ behavior: "smooth" });
+    $("#admin-pin")?.focus();
+  });
+
+  document.querySelectorAll("form[data-draft]").forEach((form) => {
+    form.addEventListener("input", () => saveFormDraft(form));
+    form.addEventListener("change", () => saveFormDraft(form));
+  });
+
   $("#refresh-btn").addEventListener("click", async () => {
     try {
+      await checkHealth({ force: true, toast: true });
       await refreshPublicData();
+      showToast("Daten aktualisiert.", "success");
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 
@@ -714,7 +912,7 @@
       try {
         await refreshPublicData();
       } catch (error) {
-        alert(error.message);
+        showToast(error.message, "error");
       }
     });
   });
@@ -727,7 +925,7 @@
     try {
       await refreshPublicData();
     } catch (error) {
-      alert(error.message);
+      showToast(error.message, "error");
     }
   });
 
@@ -739,34 +937,45 @@
     const colorInput = $("#create-team-form input[name='color']");
     colorInput.value = button.dataset.color;
     renderColorPresets();
+    saveFormDraft($("#create-team-form"));
   });
 
   $("#admin-login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const pin = $("#admin-pin").value;
-    const message = $("#admin-login-message");
     try {
       await api("/api/admin/login", {
         method: "POST",
         body: JSON.stringify({ pin }),
+        skipHealthGate: false,
       });
       $("#admin-pin").value = "";
-      showMessage(message, "Erfolgreich angemeldet.");
+      clearFormDraft(event.currentTarget);
+      showToast("Erfolgreich angemeldet.", "success");
       setAuthUi(true);
+      setConnection("online");
       await refreshPublicData();
     } catch (error) {
-      showMessage(message, error.message, true);
+      showToast(error.message, "error");
     }
   });
 
   $("#admin-logout").addEventListener("click", async () => {
-    await api("/api/admin/logout", { method: "POST", body: "{}" });
-    setAuthUi(false);
-    showMessage($("#admin-login-message"), "Abgemeldet.");
+    try {
+      await api("/api/admin/logout", { method: "POST", body: "{}" });
+      setAuthUi(false);
+      showToast("Abgemeldet.", "info");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
   });
 
   $("#create-team-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canPersist()) {
+      showToast("Backend aktuell nicht erreichbar.", "error");
+      return;
+    }
     const form = event.currentTarget;
     const data = new FormData(form);
     const members = String(data.get("members") || "")
@@ -786,16 +995,21 @@
       });
       form.reset();
       form.querySelector("input[name='color']").value = "#2E6EA7";
+      clearFormDraft(form);
       renderColorPresets();
-      showMessage($("#admin-action-message"), "Team angelegt.");
+      showToast("Team wurde erfolgreich erstellt.", "success");
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      showToast(error.message, "error");
     }
   });
 
   $("#create-game-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canPersist()) {
+      showToast("Backend aktuell nicht erreichbar.", "error");
+      return;
+    }
     const form = event.currentTarget;
     const data = new FormData(form);
     const maxRaw = String(data.get("max_points") || "").trim();
@@ -814,32 +1028,20 @@
       form.reset();
       form.querySelector("select[name='scoring_mode']").value = "placement";
       form.querySelector("select[name='status']").value = "active";
-      showMessage($("#admin-action-message"), "Spiel angelegt.");
+      clearFormDraft(form);
+      showToast("Spiel erfolgreich angelegt.", "success");
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
-    }
-  });
-
-  $("#create-juror-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    try {
-      await api("/api/jurors", {
-        method: "POST",
-        body: JSON.stringify({ name: data.get("name") }),
-      });
-      form.reset();
-      showMessage($("#admin-action-message"), "Juror angelegt.");
-      await refreshPublicData();
-    } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      showToast(error.message, "error");
     }
   });
 
   $("#settings-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canPersist()) {
+      showToast("Backend aktuell nicht erreichbar.", "error");
+      return;
+    }
     const data = new FormData(event.currentTarget);
     try {
       const payload = await api("/api/settings/leaderboard", {
@@ -847,15 +1049,20 @@
         body: JSON.stringify({ winnerMode: data.get("winnerMode") }),
       });
       state.winnerMode = payload.winnerMode;
-      showMessage($("#admin-action-message"), "Einstellungen gespeichert.");
+      clearFormDraft(event.currentTarget);
+      showToast("Einstellungen gespeichert.", "success");
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      showToast(error.message, "error");
     }
   });
 
   $("#correct-points-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canPersist()) {
+      showToast("Backend aktuell nicht erreichbar.", "error");
+      return;
+    }
     const form = event.currentTarget;
     const data = new FormData(form);
     const teamId = Number(data.get("team_id"));
@@ -863,18 +1070,15 @@
     const deltaRaw = String(data.get("delta") || "").trim();
     const note = String(data.get("note") || "").trim();
     const createdBy = String(data.get("created_by") || "Admin").trim() || "Admin";
+    const evaluationDate = data.get("evaluation_date") || todayLocal();
 
-    const body = { note, created_by: createdBy };
+    const body = { note, created_by: createdBy, evaluation_date: evaluationDate };
     if (deltaRaw !== "") {
       body.delta = Number(deltaRaw);
     } else if (totalRaw !== "") {
       body.total_points = Number(totalRaw);
     } else {
-      showMessage(
-        $("#admin-action-message"),
-        "Bitte Gesamtpunkte oder Differenz angeben.",
-        true
-      );
+      showToast("Bitte Gesamtpunkte oder Differenz angeben.", "error");
       return;
     }
 
@@ -885,10 +1089,12 @@
       });
       form.reset();
       form.querySelector("input[name='created_by']").value = "Admin";
-      showMessage($("#admin-action-message"), "Punkte korrigiert.");
+      form.querySelector("input[name='evaluation_date']").value = todayLocal();
+      clearFormDraft(form);
+      showToast("Punkte wurden erfolgreich korrigiert.", "success");
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      showToast(error.message, "error");
     }
   });
 
@@ -899,18 +1105,14 @@
       return;
     }
     event.preventDefault();
-
     try {
       if (addMemberForm) {
-        const teamId = addMemberForm.dataset.teamId;
-        const name = new FormData(addMemberForm).get("name");
-        await api(`/api/teams/${teamId}/members`, {
+        await api(`/api/teams/${addMemberForm.dataset.teamId}/members`, {
           method: "POST",
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name: new FormData(addMemberForm).get("name") }),
         });
-        showMessage($("#admin-action-message"), "Mitglied hinzugefügt.");
+        showToast("Mitglied hinzugefügt.", "success");
       }
-
       if (colorForm) {
         const teamId = colorForm.dataset.teamId;
         const color = new FormData(colorForm).get("color");
@@ -919,12 +1121,11 @@
           method: "PUT",
           body: JSON.stringify({ name: team?.name, color }),
         });
-        showMessage($("#admin-action-message"), "Teamfarbe gespeichert.");
+        showToast("Team wurde erfolgreich bearbeitet.", "success");
       }
-
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      showToast(error.message, "error");
     }
   });
 
@@ -933,7 +1134,6 @@
     if (!button) {
       return;
     }
-
     const action = button.dataset.action;
     try {
       if (action === "delete-member") {
@@ -941,17 +1141,15 @@
           `/api/teams/${button.dataset.teamId}/members/${button.dataset.memberId}`,
           { method: "DELETE" }
         );
-        showMessage($("#admin-action-message"), "Mitglied entfernt.");
+        showToast("Mitglied entfernt.", "success");
       }
-
       if (action === "delete-team") {
         if (!confirm("Team wirklich löschen? Zugehörige Punkte entfallen.")) {
           return;
         }
         await api(`/api/teams/${button.dataset.teamId}`, { method: "DELETE" });
-        showMessage($("#admin-action-message"), "Team gelöscht.");
+        showToast("Team wurde erfolgreich gelöscht.", "success");
       }
-
       if (action === "rename-team") {
         const next = prompt("Neuer Teamname:", button.dataset.name);
         if (!next) {
@@ -964,42 +1162,11 @@
           method: "PUT",
           body: JSON.stringify({ name: next, color: team?.color }),
         });
-        showMessage($("#admin-action-message"), "Team umbenannt.");
-      }
-
-      await refreshPublicData();
-    } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
-    }
-  });
-
-  $("#admin-jurors").addEventListener("click", async (event) => {
-    const button = event.target.closest("button[data-action]");
-    if (!button) {
-      return;
-    }
-    try {
-      if (button.dataset.action === "delete-juror") {
-        if (!confirm("Juror wirklich löschen?")) {
-          return;
-        }
-        await api(`/api/jurors/${button.dataset.jurorId}`, { method: "DELETE" });
-        showMessage($("#admin-action-message"), "Juror gelöscht.");
-      }
-      if (button.dataset.action === "rename-juror") {
-        const next = prompt("Neuer Juror-Name:", button.dataset.name);
-        if (!next) {
-          return;
-        }
-        await api(`/api/jurors/${button.dataset.jurorId}`, {
-          method: "PUT",
-          body: JSON.stringify({ name: next }),
-        });
-        showMessage($("#admin-action-message"), "Juror umbenannt.");
+        showToast("Team wurde erfolgreich bearbeitet.", "success");
       }
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      showToast(error.message, "error");
     }
   });
 
@@ -1013,16 +1180,14 @@
     if (!item) {
       return;
     }
-
     try {
       if (button.dataset.action === "delete-correction") {
         if (!confirm("Korrektur wirklich löschen?")) {
           return;
         }
         await api(`/api/corrections/${id}`, { method: "DELETE" });
-        showMessage($("#admin-action-message"), "Korrektur gelöscht.");
+        showToast("Wertung gelöscht.", "success");
       }
-
       if (button.dataset.action === "edit-correction") {
         const pointsRaw = prompt("Neuer Korrekturwert (Differenz):", String(item.points));
         if (pointsRaw == null) {
@@ -1030,6 +1195,13 @@
         }
         const noteRaw = prompt("Notiz:", item.note || "");
         if (noteRaw == null) {
+          return;
+        }
+        const dateRaw = prompt(
+          "Bewertungsdatum (JJJJ-MM-TT):",
+          item.evaluation_date || todayLocal()
+        );
+        if (dateRaw == null) {
           return;
         }
         const createdBy = prompt("Bearbeiter:", item.created_by || "Admin");
@@ -1042,36 +1214,36 @@
             points: Number(pointsRaw),
             note: noteRaw,
             created_by: createdBy,
+            evaluation_date: dateRaw,
           }),
         });
-        showMessage($("#admin-action-message"), "Korrektur aktualisiert.");
+        showToast("Punkte wurden erfolgreich korrigiert.", "success");
       }
-
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      showToast(error.message, "error");
+    }
+  });
+
+  $("#admin-games").addEventListener("input", (event) => {
+    const nameInput = event.target.closest("input[data-action='jury-name']");
+    if (nameInput) {
+      ensureJuryDraft(Number(nameInput.dataset.gameId)).jurorName = nameInput.value;
     }
   });
 
   $("#admin-games").addEventListener("change", (event) => {
-    const select = event.target.closest("select[data-action='jury-juror']");
-    if (!select) {
+    const placementDate = event.target.closest("input[data-action='placement-date']");
+    if (placementDate) {
+      ensurePlacementDraft(Number(placementDate.dataset.gameId)).evaluationDate =
+        placementDate.value || todayLocal();
       return;
     }
-    const gameId = Number(select.dataset.gameId);
-    const draft = ensureJuryDraft(gameId);
-    draft.jurorId = Number(select.value) || "";
-    const game = state.games.find((item) => item.id === gameId);
-    const ballot = game?.jury?.ballots?.find(
-      (row) => String(row.juror_id) === String(draft.jurorId)
-    );
-    if (ballot?.rankings?.length) {
-      draft.teamIds = ballot.rankings
-        .slice()
-        .sort((a, b) => a.place - b.place)
-        .map((row) => row.team_id);
+    const juryDate = event.target.closest("input[data-action='jury-date']");
+    if (juryDate) {
+      ensureJuryDraft(Number(juryDate.dataset.gameId)).evaluationDate =
+        juryDate.value || todayLocal();
     }
-    renderAdminGames();
   });
 
   $("#admin-games").addEventListener("click", async (event) => {
@@ -1089,11 +1261,8 @@
         const index = Number(button.dataset.index);
         const direction = action === "rank-up" ? -1 : 1;
         if (kind === "placement") {
-          state.placementDrafts[gameId] = moveInList(
-            ensurePlacementDraft(gameId),
-            index,
-            direction
-          );
+          const draft = ensurePlacementDraft(gameId);
+          draft.teamIds = moveInList(draft.teamIds, index, direction);
         } else {
           const draft = ensureJuryDraft(gameId);
           draft.teamIds = moveInList(draft.teamIds, index, direction);
@@ -1103,28 +1272,58 @@
       }
 
       if (action === "save-placement") {
-        const teamIds = ensurePlacementDraft(gameId);
+        const draft = ensurePlacementDraft(gameId);
         await api(`/api/games/${gameId}/placement`, {
           method: "PUT",
-          body: JSON.stringify({ team_ids: teamIds }),
+          body: JSON.stringify({
+            team_ids: draft.teamIds,
+            evaluation_date: draft.evaluationDate || todayLocal(),
+          }),
         });
-        showMessage($("#admin-action-message"), "Platzierung gespeichert.");
+        showToast("Platzierungswertung gespeichert.", "success");
       }
 
       if (action === "save-jury") {
         const draft = ensureJuryDraft(gameId);
-        if (!draft.jurorId) {
-          showMessage($("#admin-action-message"), "Bitte Juror wählen.", true);
+        if (!String(draft.jurorName || "").trim()) {
+          showToast("Bitte Juror angeben.", "error");
           return;
         }
-        await api(`/api/games/${gameId}/jury-rankings`, {
+        const payload = await api(`/api/games/${gameId}/jury-rankings`, {
           method: "PUT",
           body: JSON.stringify({
-            juror_id: Number(draft.jurorId),
+            juror_name: draft.jurorName.trim(),
             team_ids: draft.teamIds,
+            evaluation_date: draft.evaluationDate || todayLocal(),
           }),
         });
-        showMessage($("#admin-action-message"), "Jurorenbewertung gespeichert.");
+        showToast(
+          payload.updated
+            ? "Jurorenbewertung erfolgreich aktualisiert."
+            : "Jurorenbewertung erfolgreich gespeichert.",
+          "success"
+        );
+        draft.jurorName = "";
+      }
+
+      if (action === "delete-jury") {
+        if (
+          !confirm(
+            "Möchtest du diese Jurorenbewertung wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden."
+          )
+        ) {
+          return;
+        }
+        try {
+          await api(
+            `/api/games/${gameId}/jury-rankings/${button.dataset.ballotId}`,
+            { method: "DELETE" }
+          );
+          showToast("Jurorenbewertung erfolgreich gelöscht.", "success");
+        } catch (error) {
+          showToast("Jurorenbewertung konnte nicht gelöscht werden.", "error");
+          throw error;
+        }
       }
 
       if (action === "toggle-game" || action === "set-status") {
@@ -1132,7 +1331,12 @@
           method: "PUT",
           body: JSON.stringify({ status: button.dataset.status }),
         });
-        showMessage($("#admin-action-message"), "Spielstatus aktualisiert.");
+        showToast(
+          button.dataset.status === "completed"
+            ? "Spiel erfolgreich abgeschlossen."
+            : "Spiel bearbeitet.",
+          "success"
+        );
       }
 
       if (action === "delete-game") {
@@ -1142,17 +1346,20 @@
         await api(`/api/games/${gameId}`, { method: "DELETE" });
         delete state.placementDrafts[gameId];
         delete state.juryDrafts[gameId];
-        showMessage($("#admin-action-message"), "Spiel gelöscht.");
+        showToast("Spiel gelöscht.", "success");
       }
 
       await refreshPublicData();
     } catch (error) {
-      showMessage($("#admin-action-message"), error.message, true);
+      if (action !== "delete-jury") {
+        showToast(error.message, "error");
+      }
     }
   });
 
   bootstrap().catch((error) => {
     console.error(error);
+    setConnection("offline", { toast: true });
     $("#leaderboard-list").innerHTML = `<div class="empty-state">Daten konnten nicht geladen werden: ${escapeHtml(error.message)}</div>`;
   });
 })();

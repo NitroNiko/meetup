@@ -12,7 +12,6 @@ const { createTeamsRouter } = require("./routes/teams");
 const { createGamesRouter } = require("./routes/games");
 const { createScoresRouter, createLeaderboardRouter } = require("./routes/scores");
 const { createSettingsRouter } = require("./routes/settings");
-const { createJurorsRouter } = require("./routes/jurors");
 const { createCorrectionsRouter } = require("./routes/corrections");
 
 function createApp(db) {
@@ -25,7 +24,7 @@ function createApp(db) {
   app.use(cookieParser());
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, service: "wyc-team-score", version: "2.0.0" });
+    res.json({ ok: true, service: "wyc-team-score", version: "2.1.0" });
   });
 
   app.get("/api/admin/status", auth.status);
@@ -37,7 +36,6 @@ function createApp(db) {
   app.use("/api/scores", createScoresRouter(db));
   app.use("/api/leaderboard", createLeaderboardRouter(db));
   app.use("/api/settings", createSettingsRouter(db));
-  app.use("/api/jurors", createJurorsRouter(db));
   app.use("/api/corrections", createCorrectionsRouter(db));
 
   app.use(express.static(path.join(__dirname, "public"), { extensions: ["html"] }));

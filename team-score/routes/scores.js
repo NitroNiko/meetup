@@ -36,7 +36,6 @@ function createScoresRouter(db) {
 
   const deleteStmt = db.prepare("DELETE FROM score_entries WHERE id = ?");
 
-  // Kept for compatibility / emergency edits; primary scoring lives in Spiele verwalten.
   router.put("/", requireAdmin, (req, res) => {
     const gameId = parseId(req.body?.game_id);
     const teamId = parseId(req.body?.team_id);
@@ -97,7 +96,6 @@ function createLeaderboardRouter(db) {
     SELECT id, name FROM members WHERE team_id = ? ORDER BY name COLLATE NOCASE
   `);
 
-  // Only completed games contribute game_points.
   const totalLeaderboardStmt = db.prepare(`
     SELECT
       t.id,
@@ -114,14 +112,24 @@ function createLeaderboardRouter(db) {
     GROUP BY t.id
   `);
 
+  // Daily: completed game scores for the date + corrections for the same evaluation_date.
   const dailyLeaderboardStmt = db.prepare(`
     SELECT
       t.id,
       t.name,
       t.color,
-      0 AS adjustment_points,
+      COALESCE((
+        SELECT SUM(c.points)
+        FROM score_corrections c
+        WHERE c.team_id = t.id AND c.evaluation_date = ?
+      ), 0) AS adjustment_points,
       COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0) AS game_points,
-      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0) AS total_points,
+      COALESCE(SUM(CASE WHEN g.status = 'completed' THEN s.points ELSE 0 END), 0)
+        + COALESCE((
+          SELECT SUM(c.points)
+          FROM score_corrections c
+          WHERE c.team_id = t.id AND c.evaluation_date = ?
+        ), 0) AS total_points,
       COUNT(CASE WHEN g.status = 'completed' THEN s.id END) AS scored_games
     FROM teams t
     LEFT JOIN score_entries s
@@ -145,7 +153,7 @@ function createLeaderboardRouter(db) {
       const winnerMode = getWinnerMode(db);
       const rows =
         mode === "daily"
-          ? dailyLeaderboardStmt.all(date)
+          ? dailyLeaderboardStmt.all(date, date, date)
           : totalLeaderboardStmt.all();
 
       const mapped = rows.map((row) => ({

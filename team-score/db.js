@@ -109,6 +109,7 @@ function migrate(db) {
 
   migrateScoreDates(db);
   migrateV2(db);
+  migrateV21(db);
 }
 
 /**
@@ -257,6 +258,86 @@ function migrateV2(db) {
   migrateAdjustmentsToCorrections(db);
 }
 
+/**
+ * v2.1: evaluation dates, freitext juror names, soft-delete ballots.
+ */
+function migrateV21(db) {
+  if (!hasColumn(db, "games", "evaluation_date")) {
+    db.exec("ALTER TABLE games ADD COLUMN evaluation_date TEXT");
+    db.exec(`
+      UPDATE games
+      SET evaluation_date = COALESCE(date(completed_at), date(created_at), date('now'))
+      WHERE evaluation_date IS NULL OR evaluation_date = ''
+    `);
+  }
+
+  if (!hasColumn(db, "score_corrections", "evaluation_date")) {
+    db.exec("ALTER TABLE score_corrections ADD COLUMN evaluation_date TEXT");
+    db.exec(`
+      UPDATE score_corrections
+      SET evaluation_date = COALESCE(date(created_at), date('now'))
+      WHERE evaluation_date IS NULL OR evaluation_date = ''
+    `);
+  }
+
+  migrateJuryBallotsV21(db);
+}
+
+function migrateJuryBallotsV21(db) {
+  if (!tableExists(db, "jury_ballots")) {
+    return;
+  }
+
+  const alreadyMigrated =
+    hasColumn(db, "jury_ballots", "juror_name") &&
+    hasColumn(db, "jury_ballots", "evaluation_date") &&
+    hasColumn(db, "jury_ballots", "deleted_at");
+
+  if (alreadyMigrated) {
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_jury_active_name
+      ON jury_ballots(game_id, juror_name COLLATE NOCASE)
+      WHERE deleted_at IS NULL
+    `);
+    return;
+  }
+
+  db.pragma("foreign_keys = OFF");
+  db.exec(`
+    CREATE TABLE jury_ballots_v21 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL,
+      juror_name TEXT NOT NULL,
+      evaluation_date TEXT NOT NULL,
+      submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      deleted_at TEXT,
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    );
+
+    INSERT INTO jury_ballots_v21 (id, game_id, juror_name, evaluation_date, submitted_at, updated_at, deleted_at)
+    SELECT
+      b.id,
+      b.game_id,
+      COALESCE(NULLIF(TRIM(j.name), ''), 'Juror ' || b.juror_id),
+      COALESCE(date(b.submitted_at), date('now')),
+      b.submitted_at,
+      b.updated_at,
+      NULL
+    FROM jury_ballots b
+    LEFT JOIN jurors j ON j.id = b.juror_id;
+
+    DROP TABLE jury_ballots;
+    ALTER TABLE jury_ballots_v21 RENAME TO jury_ballots;
+
+    CREATE INDEX IF NOT EXISTS idx_jury_ballots_game ON jury_ballots(game_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_jury_active_name
+      ON jury_ballots(game_id, juror_name COLLATE NOCASE)
+      WHERE deleted_at IS NULL;
+  `);
+  db.pragma("foreign_keys = ON");
+}
+
 function migrateGamesV2(db) {
   const needsRebuild =
     !hasColumn(db, "games", "scoring_mode") ||
@@ -400,8 +481,6 @@ function seedIfEmpty(db) {
   const insertScore = db.prepare(
     "INSERT INTO score_entries (game_id, team_id, points, note, score_date) VALUES (?, ?, ?, ?, ?)"
   );
-  const insertJuror = db.prepare("INSERT INTO jurors (name) VALUES (?)");
-
   const seed = db.transaction(() => {
     const blue = insertTeam.run("Team Blau", "#2E6EA7").lastInsertRowid;
     const red = insertTeam.run("Team Rot", "#E12914").lastInsertRowid;
@@ -413,9 +492,6 @@ function seedIfEmpty(db) {
     insertMember.run(red, "David");
     insertMember.run(green, "Elena");
     insertMember.run(green, "Felix");
-
-    insertJuror.run("Juror A");
-    insertJuror.run("Juror B");
 
     const activeGame = insertGame.run(
       "Bojenparcours",

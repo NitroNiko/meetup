@@ -8,6 +8,8 @@ const {
   parseInteger,
   parseOptionalNote,
   trimRequired,
+  parseDate,
+  todayDateString,
 } = require("./helpers");
 
 function createCorrectionsRouter(db) {
@@ -16,16 +18,18 @@ function createCorrectionsRouter(db) {
   const listStmt = db.prepare(`
     SELECT
       c.id, c.team_id, c.points, c.note, c.created_by, c.created_at, c.updated_at,
+      c.evaluation_date,
       t.name AS team_name, t.color AS team_color
     FROM score_corrections c
     JOIN teams t ON t.id = c.team_id
     WHERE (? IS NULL OR c.team_id = ?)
-    ORDER BY c.created_at DESC, c.id DESC
+    ORDER BY c.evaluation_date DESC, c.created_at DESC, c.id DESC
   `);
 
   const getStmt = db.prepare(`
     SELECT
       c.id, c.team_id, c.points, c.note, c.created_by, c.created_at, c.updated_at,
+      c.evaluation_date,
       t.name AS team_name, t.color AS team_color
     FROM score_corrections c
     JOIN teams t ON t.id = c.team_id
@@ -34,12 +38,12 @@ function createCorrectionsRouter(db) {
 
   const teamExistsStmt = db.prepare("SELECT id FROM teams WHERE id = ?");
   const insertStmt = db.prepare(`
-    INSERT INTO score_corrections (team_id, points, note, created_by)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO score_corrections (team_id, points, note, created_by, evaluation_date)
+    VALUES (?, ?, ?, ?, ?)
   `);
   const updateStmt = db.prepare(`
     UPDATE score_corrections
-    SET points = ?, note = ?, created_by = ?, updated_at = datetime('now')
+    SET points = ?, note = ?, created_by = ?, evaluation_date = ?, updated_at = datetime('now')
     WHERE id = ?
   `);
   const deleteStmt = db.prepare("DELETE FROM score_corrections WHERE id = ?");
@@ -64,8 +68,17 @@ function createCorrectionsRouter(db) {
         req.body?.created_by || "Admin",
         "Bearbeiter"
       );
+      const evaluationDate = req.body?.evaluation_date
+        ? parseDate(req.body.evaluation_date, "evaluation_date")
+        : todayDateString();
 
-      const result = insertStmt.run(teamId, points, note, createdBy);
+      const result = insertStmt.run(
+        teamId,
+        points,
+        note,
+        createdBy,
+        evaluationDate
+      );
       syncTeamAdjustmentPoints(db, teamId);
       return res.status(201).json(getStmt.get(result.lastInsertRowid));
     } catch (error) {
@@ -96,8 +109,12 @@ function createCorrectionsRouter(db) {
         req.body?.created_by !== undefined
           ? trimRequired(req.body.created_by, "Bearbeiter")
           : existing.created_by;
+      const evaluationDate =
+        req.body?.evaluation_date !== undefined
+          ? parseDate(req.body.evaluation_date, "evaluation_date")
+          : existing.evaluation_date || todayDateString();
 
-      updateStmt.run(points, note, createdBy, id);
+      updateStmt.run(points, note, createdBy, evaluationDate, id);
       syncTeamAdjustmentPoints(db, existing.team_id);
       return res.json(getStmt.get(id));
     } catch (error) {

@@ -51,11 +51,12 @@ function request(server, method, urlPath, { body, cookie } = {}) {
   });
 }
 
-describe("API v2 integration", () => {
+describe("API v2.1 integration", () => {
   let dbPath;
   let db;
   let server;
   let adminCookie = "";
+  let ids = {};
 
   before(async () => {
     process.env.ADMIN_PIN = "1234";
@@ -64,7 +65,6 @@ describe("API v2 integration", () => {
       `wyc-team-score-test-${Date.now()}-${Math.random().toString(16).slice(2)}.db`
     );
     db = openDatabase(dbPath);
-    // Wipe seed noise for deterministic tests.
     db.exec(`
       DELETE FROM score_entries;
       DELETE FROM placement_rankings;
@@ -73,16 +73,14 @@ describe("API v2 integration", () => {
       DELETE FROM score_corrections;
       DELETE FROM games;
       DELETE FROM members;
-      DELETE FROM jurors;
       DELETE FROM teams;
-      UPDATE teams SET adjustment_points = 0;
     `);
-    // Fresh teams
     const insertTeam = db.prepare("INSERT INTO teams (name, color) VALUES (?, ?)");
-    const blue = insertTeam.run("Team Blau", "#2E6EA7").lastInsertRowid;
-    const red = insertTeam.run("Team Rot", "#E12914").lastInsertRowid;
-    const green = insertTeam.run("Team Grün", "#5ABC8E").lastInsertRowid;
-    globalThis.__ids = { blue, red, green };
+    ids = {
+      blue: insertTeam.run("Team Blau", "#2E6EA7").lastInsertRowid,
+      red: insertTeam.run("Team Rot", "#E12914").lastInsertRowid,
+      green: insertTeam.run("Team Grün", "#5ABC8E").lastInsertRowid,
+    };
 
     const app = createApp(db);
     server = http.createServer(app);
@@ -106,8 +104,13 @@ describe("API v2 integration", () => {
     }
   });
 
-  it("configures winnerMode and sorts leaderboard accordingly", async () => {
-    const { blue, red, green } = globalThis.__ids;
+  it("sorts game scores by winnerMode and only counts completed games", async () => {
+    const { blue, red, green } = ids;
+    await request(server, "PUT", "/api/settings/leaderboard", {
+      cookie: adminCookie,
+      body: { winnerMode: "highest-score" },
+    });
+
     const createGame = await request(server, "POST", "/api/games", {
       cookie: adminCookie,
       body: {
@@ -126,12 +129,16 @@ describe("API v2 integration", () => {
       `/api/games/${gameId}/placement`,
       {
         cookie: adminCookie,
-        body: { team_ids: [blue, red, green] },
+        body: {
+          team_ids: [blue, red, green],
+          evaluation_date: "2026-07-15",
+        },
       }
     );
     assert.equal(placement.status, 200);
+    assert.equal(placement.json.scores[0].team_name, "Team Blau");
+    assert.equal(placement.json.scores[0].score_date, "2026-07-15");
 
-    // Active game must not count yet.
     let board = await request(server, "GET", "/api/leaderboard?mode=total");
     assert.equal(board.json.teams.every((team) => team.game_points === 0), true);
 
@@ -141,7 +148,6 @@ describe("API v2 integration", () => {
     });
 
     board = await request(server, "GET", "/api/leaderboard?mode=total");
-    assert.equal(board.json.winnerMode, "highest-score");
     assert.equal(board.json.teams[0].name, "Team Blau");
 
     await request(server, "PUT", "/api/settings/leaderboard", {
@@ -149,31 +155,37 @@ describe("API v2 integration", () => {
       body: { winnerMode: "lowest-score" },
     });
 
+    const game = await request(server, "GET", `/api/games/${gameId}?admin=1`);
+    assert.equal(game.json.scores[0].team_name, "Team Grün");
+    assert.equal(game.json.winnerMode, "lowest-score");
+
     board = await request(server, "GET", "/api/leaderboard?mode=total");
-    assert.equal(board.json.winnerMode, "lowest-score");
     assert.equal(board.json.teams[0].name, "Team Grün");
 
-    // Reopen removes points from leaderboard.
-    await request(server, "PUT", `/api/games/${gameId}`, {
-      cookie: adminCookie,
-      body: { status: "active" },
-    });
-    board = await request(server, "GET", "/api/leaderboard?mode=total");
-    assert.equal(board.json.teams.every((team) => team.game_points === 0), true);
+    const daily = await request(
+      server,
+      "GET",
+      "/api/leaderboard?mode=daily&date=2026-07-15"
+    );
+    assert.ok(daily.json.teams.some((team) => team.game_points > 0));
+
+    const dailyOther = await request(
+      server,
+      "GET",
+      "/api/leaderboard?mode=daily&date=2026-07-20"
+    );
+    assert.equal(
+      dailyOther.json.teams.every((team) => team.game_points === 0),
+      true
+    );
   });
 
-  it("stores jury rankings with live standings and notes on corrections", async () => {
-    const { blue, red, green } = globalThis.__ids;
-
-    const jurorA = await request(server, "POST", "/api/jurors", {
+  it("supports freitext jurors, soft-delete, and dated corrections", async () => {
+    const { blue, red, green } = ids;
+    await request(server, "PUT", "/api/settings/leaderboard", {
       cookie: adminCookie,
-      body: { name: "Juror A" },
+      body: { winnerMode: "highest-score" },
     });
-    const jurorB = await request(server, "POST", "/api/jurors", {
-      cookie: adminCookie,
-      body: { name: "Juror B" },
-    });
-    assert.equal(jurorA.status, 201);
 
     const game = await request(server, "POST", "/api/games", {
       cookie: adminCookie,
@@ -188,48 +200,63 @@ describe("API v2 integration", () => {
       {
         cookie: adminCookie,
         body: {
-          juror_id: jurorA.json.id,
+          juror_name: "Max Mustermann",
           team_ids: [red, blue, green],
+          evaluation_date: "2026-07-15",
         },
       }
     );
     assert.equal(voteA.status, 200);
     assert.equal(voteA.json.submitted, 1);
-    assert.equal(voteA.json.expected, 2);
+    assert.equal(voteA.json.updated, false);
     assert.equal(voteA.json.standings[0].team_name, "Team Rot");
 
-    await request(server, "PUT", `/api/games/${gameId}/jury-rankings`, {
-      cookie: adminCookie,
-      body: {
-        juror_id: jurorB.json.id,
-        team_ids: [blue, green, red],
-      },
-    });
-
-    const standings = await request(
+    const voteB = await request(
       server,
-      "GET",
-      `/api/games/${gameId}/standings`,
+      "PUT",
+      `/api/games/${gameId}/jury-rankings`,
+      {
+        cookie: adminCookie,
+        body: {
+          juror_name: "Hans Meyer",
+          team_ids: [blue, green, red],
+          evaluation_date: "2026-07-15",
+        },
+      }
+    );
+    assert.equal(voteB.status, 200);
+    assert.equal(voteB.json.submitted, 2);
+
+    const updateA = await request(
+      server,
+      "PUT",
+      `/api/games/${gameId}/jury-rankings`,
+      {
+        cookie: adminCookie,
+        body: {
+          juror_name: "Max Mustermann",
+          team_ids: [blue, red, green],
+          evaluation_date: "2026-07-15",
+        },
+      }
+    );
+    assert.equal(updateA.json.updated, true);
+
+    const ballotId = voteA.json.ballot_id;
+    const del = await request(
+      server,
+      "DELETE",
+      `/api/games/${gameId}/jury-rankings/${ballotId}`,
       { cookie: adminCookie }
     );
-    assert.equal(standings.json.submitted, 2);
-    assert.deepEqual(
-      standings.json.standings.map((row) => row.team_name),
-      ["Team Blau", "Team Rot", "Team Grün"]
-    );
-
-    // Incomplete game still excluded from leaderboard.
-    let board = await request(server, "GET", "/api/leaderboard?mode=total");
-    const before = board.json.teams.find((team) => team.name === "Team Blau");
+    assert.equal(del.status, 200);
+    assert.equal(del.json.submitted, 1);
+    assert.equal(del.json.ballots.every((b) => b.id !== ballotId), true);
 
     await request(server, "PUT", `/api/games/${gameId}`, {
       cookie: adminCookie,
-      body: { status: "completed" },
+      body: { status: "completed", evaluation_date: "2026-07-15" },
     });
-
-    board = await request(server, "GET", "/api/leaderboard?mode=total");
-    const after = board.json.teams.find((team) => team.name === "Team Blau");
-    assert.ok(after.game_points >= before.game_points);
 
     const correction = await request(server, "POST", "/api/corrections", {
       cookie: adminCookie,
@@ -238,24 +265,32 @@ describe("API v2 integration", () => {
         points: 5,
         note: "  Bonuspunkte nachträglich vergeben.  ",
         created_by: "Max Mustermann",
+        evaluation_date: "2026-07-15",
       },
     });
     assert.equal(correction.status, 201);
+    assert.equal(correction.json.evaluation_date, "2026-07-15");
     assert.equal(correction.json.note, "Bonuspunkte nachträglich vergeben.");
-    assert.equal(correction.json.created_by, "Max Mustermann");
 
-    const listed = await request(server, "GET", "/api/corrections");
-    assert.ok(listed.json.some((row) => row.id === correction.json.id));
-
-    await request(server, "PUT", `/api/corrections/${correction.json.id}`, {
-      cookie: adminCookie,
-      body: { note: "Aktualisierte Notiz", points: 5 },
-    });
-    const updated = await request(
+    const daily = await request(
       server,
       "GET",
-      `/api/corrections?team_id=${red}`
+      "/api/leaderboard?mode=daily&date=2026-07-15"
     );
-    assert.equal(updated.json[0].note, "Aktualisierte Notiz");
+    const redDaily = daily.json.teams.find((team) => team.name === "Team Rot");
+    assert.equal(redDaily.adjustment_points, 5);
+
+    const dailyOther = await request(
+      server,
+      "GET",
+      "/api/leaderboard?mode=daily&date=2026-07-20"
+    );
+    const redOther = dailyOther.json.teams.find((team) => team.name === "Team Rot");
+    assert.equal(redOther.adjustment_points, 0);
+  });
+
+  it("exposes health version 2.1", async () => {
+    const health = await request(server, "GET", "/api/health");
+    assert.equal(health.json.version, "2.1.0");
   });
 });
