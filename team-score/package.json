@@ -1,6 +1,6 @@
 {
   "name": "wyc-team-score",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "WYC Team Score Platform – Leaderboard für Teams und Spiele",
   "private": true,
   "main": "server.js",

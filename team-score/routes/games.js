@@ -6,6 +6,7 @@ const {
   isLeaderboardEligibleStatus,
 } = require("../lib/constants");
 const { getWinnerMode } = require("../lib/settings");
+const { sortScoreRowsByWinnerMode } = require("../lib/scoring");
 const {
   computeJuryStandings,
   teamOrderFromStandings,
@@ -21,13 +22,16 @@ const {
   parseGameStatus,
   parseScoringMode,
   parseTeamIdList,
+  parseDate,
+  todayDateString,
 } = require("./helpers");
 
 function createGamesRouter(db) {
   const router = express.Router();
 
   const listGamesStmt = db.prepare(`
-    SELECT id, title, description, status, scoring_mode, max_points, created_at, completed_at
+    SELECT id, title, description, status, scoring_mode, max_points,
+           created_at, completed_at, evaluation_date
     FROM games
     WHERE (? IS NULL OR status = ?)
     ORDER BY
@@ -41,7 +45,8 @@ function createGamesRouter(db) {
   `);
 
   const getGameStmt = db.prepare(`
-    SELECT id, title, description, status, scoring_mode, max_points, created_at, completed_at
+    SELECT id, title, description, status, scoring_mode, max_points,
+           created_at, completed_at, evaluation_date
     FROM games WHERE id = ?
   `);
 
@@ -59,7 +64,6 @@ function createGamesRouter(db) {
     FROM score_entries s
     JOIN teams t ON t.id = s.team_id
     WHERE s.game_id = ?
-    ORDER BY s.points DESC, t.name COLLATE NOCASE
   `);
 
   const allTeamsStmt = db.prepare(
@@ -81,12 +85,12 @@ function createGamesRouter(db) {
     INSERT INTO placement_rankings (game_id, team_id, place) VALUES (?, ?, ?)
   `);
 
-  const jurorCountStmt = db.prepare("SELECT COUNT(*) AS count FROM jurors");
   const ballotsStmt = db.prepare(`
-    SELECT b.id, b.game_id, b.juror_id, b.submitted_at, b.updated_at, j.name AS juror_name
+    SELECT
+      b.id, b.game_id, b.juror_name, b.evaluation_date,
+      b.submitted_at, b.updated_at, b.deleted_at
     FROM jury_ballots b
-    JOIN jurors j ON j.id = b.juror_id
-    WHERE b.game_id = ?
+    WHERE b.game_id = ? AND b.deleted_at IS NULL
     ORDER BY b.updated_at DESC
   `);
   const ballotItemsStmt = db.prepare(`
@@ -96,16 +100,28 @@ function createGamesRouter(db) {
     WHERE i.ballot_id = ?
     ORDER BY i.place ASC
   `);
-  const getJurorStmt = db.prepare("SELECT id, name FROM jurors WHERE id = ?");
-  const getBallotStmt = db.prepare(
-    "SELECT id, game_id, juror_id FROM jury_ballots WHERE game_id = ? AND juror_id = ?"
-  );
-  const insertBallotStmt = db.prepare(`
-    INSERT INTO jury_ballots (game_id, juror_id, submitted_at, updated_at)
-    VALUES (?, ?, datetime('now'), datetime('now'))
+  const getActiveBallotByNameStmt = db.prepare(`
+    SELECT id, game_id, juror_name, evaluation_date
+    FROM jury_ballots
+    WHERE game_id = ? AND deleted_at IS NULL AND juror_name = ? COLLATE NOCASE
   `);
-  const touchBallotStmt = db.prepare(`
-    UPDATE jury_ballots SET updated_at = datetime('now') WHERE id = ?
+  const getBallotByIdStmt = db.prepare(`
+    SELECT id, game_id, juror_name, evaluation_date, deleted_at
+    FROM jury_ballots WHERE id = ?
+  `);
+  const insertBallotStmt = db.prepare(`
+    INSERT INTO jury_ballots (game_id, juror_name, evaluation_date, submitted_at, updated_at)
+    VALUES (?, ?, ?, datetime('now'), datetime('now'))
+  `);
+  const updateBallotStmt = db.prepare(`
+    UPDATE jury_ballots
+    SET juror_name = ?, evaluation_date = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+  const softDeleteBallotStmt = db.prepare(`
+    UPDATE jury_ballots
+    SET deleted_at = datetime('now'), updated_at = datetime('now')
+    WHERE id = ? AND deleted_at IS NULL
   `);
   const clearBallotItemsStmt = db.prepare(
     "DELETE FROM jury_ballot_items WHERE ballot_id = ?"
@@ -115,13 +131,14 @@ function createGamesRouter(db) {
   `);
 
   const insertGameStmt = db.prepare(`
-    INSERT INTO games (title, description, status, scoring_mode, max_points, completed_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO games (title, description, status, scoring_mode, max_points, completed_at, evaluation_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   const updateGameStmt = db.prepare(`
     UPDATE games
-    SET title = ?, description = ?, status = ?, scoring_mode = ?, max_points = ?, completed_at = ?
+    SET title = ?, description = ?, status = ?, scoring_mode = ?,
+        max_points = ?, completed_at = ?, evaluation_date = ?
     WHERE id = ?
   `);
 
@@ -129,17 +146,20 @@ function createGamesRouter(db) {
 
   function loadJuryPayload(gameId) {
     const teams = allTeamsStmt.all();
-    const expected = Number(jurorCountStmt.get().count) || 0;
     const ballots = ballotsStmt.all(gameId).map((ballot) => ({
       ...ballot,
       rankings: ballotItemsStmt.all(ballot.id),
     }));
-    const standingsPayload = computeJuryStandings(ballots, teams, expected);
+    const standingsPayload = computeJuryStandings(
+      ballots,
+      teams,
+      ballots.length
+    );
     return {
       ballots,
       standings: standingsPayload.standings,
       submitted: standingsPayload.submitted,
-      expected: standingsPayload.expected,
+      expected: standingsPayload.submitted,
     };
   }
 
@@ -148,17 +168,23 @@ function createGamesRouter(db) {
       return null;
     }
 
+    const winnerMode = getWinnerMode(db);
+    const scores = sortScoreRowsByWinnerMode(
+      scoresForGameStmt.all(game.id),
+      winnerMode
+    );
+
     const countsForLeaderboard = isLeaderboardEligibleStatus(game.status);
     const base = {
       ...game,
+      winnerMode,
       counts_for_leaderboard: countsForLeaderboard,
-      scores: scoresForGameStmt.all(game.id),
+      scores,
       placement: placementStmt.all(game.id),
     };
 
     if (includeAdmin || game.scoring_mode === "jury") {
       const jury = loadJuryPayload(game.id);
-      // Live standings only for admin consumers; public still gets scores after completion.
       if (includeAdmin) {
         base.jury = jury;
       } else if (game.status === "completed") {
@@ -173,7 +199,8 @@ function createGamesRouter(db) {
     return base;
   }
 
-  function syncResultsFromCurrentRanking(game) {
+  function syncResultsFromCurrentRanking(game, scoreDate) {
+    const date = scoreDate || game.evaluation_date || todayDateString();
     if (game.scoring_mode === "placement") {
       const placement = placementStmt.all(game.id);
       if (!placement.length) {
@@ -182,6 +209,7 @@ function createGamesRouter(db) {
       const teamIds = placement.map((row) => row.team_id);
       return applyGameResults(db, game, teamIds, {
         winnerMode: getWinnerMode(db),
+        scoreDate: date,
         note: "Platzierungswertung",
       });
     }
@@ -193,6 +221,7 @@ function createGamesRouter(db) {
     }
     return applyGameResults(db, game, teamIds, {
       winnerMode: getWinnerMode(db),
+      scoreDate: date,
       note: "Jurorenwertung",
     });
   }
@@ -262,13 +291,17 @@ function createGamesRouter(db) {
         maxPoints = parseNonNegativeInt(req.body.max_points, "max_points");
       }
       const completedAt = status === "completed" ? new Date().toISOString() : null;
+      const evaluationDate = req.body?.evaluation_date
+        ? parseDate(req.body.evaluation_date, "evaluation_date")
+        : todayDateString();
       const result = insertGameStmt.run(
         title,
         description,
         status,
         scoringMode,
         maxPoints,
-        completedAt
+        completedAt,
+        evaluationDate
       );
       return res
         .status(201)
@@ -314,6 +347,10 @@ function createGamesRouter(db) {
         completedAt = null;
       }
 
+      const evaluationDate = req.body?.evaluation_date
+        ? parseDate(req.body.evaluation_date, "evaluation_date")
+        : existing.evaluation_date || todayDateString();
+
       updateGameStmt.run(
         title,
         description,
@@ -321,12 +358,13 @@ function createGamesRouter(db) {
         scoringMode,
         maxPoints,
         completedAt,
+        evaluationDate,
         id
       );
 
       const updated = getGameStmt.get(id);
       if (status === "completed") {
-        syncResultsFromCurrentRanking(updated);
+        syncResultsFromCurrentRanking(updated, evaluationDate);
       }
 
       return res.json(enrichGame(getGameStmt.get(id), { includeAdmin: true }));
@@ -351,16 +389,26 @@ function createGamesRouter(db) {
     try {
       const teamIds = parseTeamIdList(req.body?.team_ids);
       const teams = allTeamsStmt.all();
-      const expectedIds = teams.map((team) => team.id);
-      validateRanking(teamIds, expectedIds);
+      validateRanking(
+        teamIds,
+        teams.map((team) => team.id)
+      );
+      const evaluationDate = req.body?.evaluation_date
+        ? parseDate(req.body.evaluation_date, "evaluation_date")
+        : todayDateString();
 
       const save = db.transaction(() => {
         clearPlacementStmt.run(id);
         teamIds.forEach((teamId, index) => {
           insertPlacementStmt.run(id, teamId, index + 1);
         });
+        db.prepare("UPDATE games SET evaluation_date = ? WHERE id = ?").run(
+          evaluationDate,
+          id
+        );
         applyGameResults(db, game, teamIds, {
           winnerMode: getWinnerMode(db),
+          scoreDate: evaluationDate,
           note: "Platzierungswertung",
         });
       });
@@ -386,47 +434,86 @@ function createGamesRouter(db) {
     }
 
     try {
-      const jurorId = parseId(req.body?.juror_id);
-      if (!jurorId || !getJurorStmt.get(jurorId)) {
-        return notFound(res, "Juror nicht gefunden.");
-      }
-
+      const jurorName = trimRequired(req.body?.juror_name, "Juror");
       const teamIds = parseTeamIdList(req.body?.team_ids);
       const teams = allTeamsStmt.all();
       validateRanking(
         teamIds,
         teams.map((team) => team.id)
       );
+      const evaluationDate = req.body?.evaluation_date
+        ? parseDate(req.body.evaluation_date, "evaluation_date")
+        : todayDateString();
 
+      let updatedExisting = false;
       const save = db.transaction(() => {
-        let ballot = getBallotStmt.get(id, jurorId);
+        let ballot = getActiveBallotByNameStmt.get(id, jurorName);
         if (!ballot) {
-          const created = insertBallotStmt.run(id, jurorId);
-          ballot = { id: created.lastInsertRowid, game_id: id, juror_id: jurorId };
+          const created = insertBallotStmt.run(id, jurorName, evaluationDate);
+          ballot = { id: created.lastInsertRowid };
+          updatedExisting = false;
         } else {
-          touchBallotStmt.run(ballot.id);
+          updateBallotStmt.run(jurorName, evaluationDate, ballot.id);
+          updatedExisting = true;
         }
         clearBallotItemsStmt.run(ballot.id);
         teamIds.forEach((teamId, index) => {
           insertBallotItemStmt.run(ballot.id, teamId, index + 1);
         });
+        db.prepare("UPDATE games SET evaluation_date = ? WHERE id = ?").run(
+          evaluationDate,
+          id
+        );
+        return ballot.id;
       });
-      save();
+      const ballotId = save();
 
-      // Interim standings only; leaderboard points sync on completion.
       if (game.status === "completed") {
-        syncResultsFromCurrentRanking(getGameStmt.get(id));
+        syncResultsFromCurrentRanking(getGameStmt.get(id), evaluationDate);
       }
 
       const jury = loadJuryPayload(id);
       return res.json({
         game_id: id,
+        ballot_id: ballotId,
+        updated: updatedExisting,
         ...jury,
         game: enrichGame(getGameStmt.get(id), { includeAdmin: true }),
       });
     } catch (error) {
       return badRequest(res, error.message);
     }
+  });
+
+  router.delete("/:id/jury-rankings/:ballotId", requireAdmin, (req, res) => {
+    const id = parseId(req.params.id);
+    const ballotId = parseId(req.params.ballotId);
+    if (!id || !ballotId) {
+      return badRequest(res, "Ungültige ID.");
+    }
+    const game = getGameStmt.get(id);
+    if (!game) {
+      return notFound(res, "Spiel nicht gefunden.");
+    }
+    const ballot = getBallotByIdStmt.get(ballotId);
+    if (!ballot || ballot.game_id !== id || ballot.deleted_at) {
+      return notFound(res, "Jurorenbewertung nicht gefunden.");
+    }
+
+    softDeleteBallotStmt.run(ballotId);
+
+    if (game.status === "completed") {
+      syncResultsFromCurrentRanking(
+        getGameStmt.get(id),
+        game.evaluation_date || todayDateString()
+      );
+    }
+
+    return res.json({
+      ok: true,
+      game: enrichGame(getGameStmt.get(id), { includeAdmin: true }),
+      ...loadJuryPayload(id),
+    });
   });
 
   router.delete("/:id", requireAdmin, (req, res) => {

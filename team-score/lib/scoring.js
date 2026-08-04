@@ -51,27 +51,57 @@ function scoresFromTeamOrder(teamIds, maxPoints = null, winnerMode = DEFAULT_WIN
 }
 
 /**
- * Sort leaderboard rows by winnerMode. Mutates a shallow copy.
- * Ties broken alphabetically by name (case-insensitive).
+ * Sort rows by a numeric points field according to winnerMode.
+ * Ties broken alphabetically by nameField (case-insensitive).
  */
-function sortLeaderboardRows(rows, winnerMode = DEFAULT_WINNER_MODE) {
+function sortByWinnerMode(
+  rows,
+  winnerMode = DEFAULT_WINNER_MODE,
+  { pointsField = "total_points", nameField = "name" } = {}
+) {
   const copy = [...rows];
   const ascending = winnerMode === "lowest-score";
   copy.sort((a, b) => {
-    const pa = Number(a.total_points) || 0;
-    const pb = Number(b.total_points) || 0;
+    const pa = Number(a[pointsField]) || 0;
+    const pb = Number(b[pointsField]) || 0;
     if (pa !== pb) {
       return ascending ? pa - pb : pb - pa;
     }
-    return String(a.name || "").localeCompare(String(b.name || ""), "de", {
+    return String(a[nameField] || "").localeCompare(String(b[nameField] || ""), "de", {
       sensitivity: "base",
     });
   });
-  return copy.map((row, index) => ({ ...row, rank: index + 1 }));
+  return copy;
+}
+
+/**
+ * Sort leaderboard rows by winnerMode.
+ * Ties broken alphabetically by name (case-insensitive).
+ */
+function sortLeaderboardRows(rows, winnerMode = DEFAULT_WINNER_MODE) {
+  return sortByWinnerMode(rows, winnerMode).map((row, index) => ({
+    ...row,
+    rank: index + 1,
+  }));
+}
+
+/**
+ * Sort game score entries so Platz 1 (gemäß winnerMode) oben steht.
+ */
+function sortScoreRowsByWinnerMode(rows, winnerMode = DEFAULT_WINNER_MODE) {
+  return sortByWinnerMode(rows, winnerMode, {
+    pointsField: "points",
+    nameField: "team_name",
+  }).map((row, index) => ({
+    ...row,
+    rank: index + 1,
+  }));
 }
 
 module.exports = {
   pointsForPlace,
   scoresFromTeamOrder,
+  sortByWinnerMode,
   sortLeaderboardRows,
+  sortScoreRowsByWinnerMode,
 };

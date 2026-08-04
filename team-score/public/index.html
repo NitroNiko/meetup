@@ -20,6 +20,15 @@
   <body>
     <a class="skip-link" href="#main">Zum Inhalt springen</a>
 
+    <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+    <div id="connection-banner" class="connection-banner hidden" role="status" hidden>
+      <span id="connection-banner-text"></span>
+      <button type="button" class="button quiet small" id="connection-login-btn" hidden>
+        Zur Anmeldung
+      </button>
+    </div>
+
     <header class="site-header">
       <div class="shell header-inner">
         <a class="brand" href="#top" aria-label="WYC Team Score Start">
@@ -30,11 +39,17 @@
             height="81"
           />
         </a>
-        <nav class="site-nav" aria-label="Hauptnavigation">
-          <a href="#leaderboard">Leaderboard</a>
-          <a href="#open-games">Spiele</a>
-          <a href="#admin">Admin</a>
-        </nav>
+        <div class="header-right">
+          <p id="connection-pill" class="connection-pill offline" title="Backend-Status">
+            <span class="connection-dot" aria-hidden="true"></span>
+            <span id="connection-pill-text">Prüfe Verbindung…</span>
+          </p>
+          <nav class="site-nav" aria-label="Hauptnavigation">
+            <a href="#leaderboard">Leaderboard</a>
+            <a href="#open-games">Spiele</a>
+            <a href="#admin">Admin</a>
+          </nav>
+        </div>
       </div>
     </header>
 
@@ -123,15 +138,19 @@
             <p id="admin-auth-label" class="auth-label">Nicht angemeldet</p>
           </div>
 
+          <div id="admin-offline-warning" class="offline-warning hidden" hidden>
+            Der Server ist derzeit nicht erreichbar oder wird gerade gestartet.
+            Bitte warte einen Moment. Neue Eingaben können aktuell nicht gespeichert werden.
+          </div>
+
           <div id="admin-login-panel" class="admin-panel">
-            <form id="admin-login-form" class="form-grid compact">
+            <form id="admin-login-form" class="form-grid compact" data-draft="admin-login">
               <label>
                 Admin-PIN
-                <input id="admin-pin" type="password" inputmode="numeric" autocomplete="current-password" required />
+                <input id="admin-pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password" required />
               </label>
-              <button class="button primary" type="submit">Anmelden</button>
+              <button class="button primary save-gated" type="submit">Anmelden</button>
             </form>
-            <p id="admin-login-message" class="form-message" hidden></p>
           </div>
 
           <div id="admin-workspace" class="admin-workspace hidden" hidden>
@@ -141,7 +160,6 @@
                 <a href="#admin-corrections-section" data-admin-nav="admin-corrections-section">Punkte korrigieren</a>
                 <a href="#admin-create-game-section" data-admin-nav="admin-create-game-section">Neues Spiel</a>
                 <a href="#admin-teams-section" data-admin-nav="admin-teams-section">Teams</a>
-                <a href="#admin-jurors-section" data-admin-nav="admin-jurors-section">Juroren</a>
                 <a href="#admin-settings-section" data-admin-nav="admin-settings-section">Einstellungen</a>
               </nav>
               <button class="button quiet" type="button" id="admin-logout">Abmelden</button>
@@ -161,10 +179,14 @@
                 <p class="team-members">
                   Nur manuelle Anpassungen (Bonus, Strafe, Fehlerkorrektur) – getrennt von der Spielwertung.
                 </p>
-                <form id="correct-points-form" class="form-grid">
+                <form id="correct-points-form" class="form-grid" data-draft="correct-points">
                   <label>
                     Team
                     <select name="team_id" id="correct-team-select" required></select>
+                  </label>
+                  <label>
+                    Bewertungsdatum
+                    <input name="evaluation_date" id="correct-date-input" type="date" required />
                   </label>
                   <label>
                     Neue Gesamtpunkte
@@ -182,7 +204,7 @@
                     Notiz (optional)
                     <textarea name="note" rows="3" maxlength="500" placeholder="Begründung der Korrektur"></textarea>
                   </label>
-                  <button class="button primary" type="submit">Korrektur speichern</button>
+                  <button class="button primary save-gated" type="submit">Korrektur speichern</button>
                 </form>
                 <div id="admin-corrections" class="manage-list corrections-list"></div>
               </article>
@@ -191,7 +213,7 @@
             <div class="admin-grid">
               <article class="admin-card" id="admin-create-game-section">
                 <h3>Neues Spiel / Aufgabe</h3>
-                <form id="create-game-form" class="form-grid">
+                <form id="create-game-form" class="form-grid" data-draft="create-game">
                   <label>
                     Titel
                     <input name="title" required maxlength="120" />
@@ -218,13 +240,13 @@
                     Max. Punkte (optional)
                     <input name="max_points" type="number" min="0" step="1" />
                   </label>
-                  <button class="button primary" type="submit">Spiel anlegen</button>
+                  <button class="button primary save-gated" type="submit">Spiel anlegen</button>
                 </form>
               </article>
 
               <article class="admin-card" id="admin-teams-section">
                 <h3>Teams</h3>
-                <form id="create-team-form" class="form-grid">
+                <form id="create-team-form" class="form-grid" data-draft="create-team">
                   <label>
                     Teamname
                     <input name="name" required maxlength="80" />
@@ -238,27 +260,15 @@
                     Mitglieder (kommagetrennt)
                     <input name="members" placeholder="Anna, Ben, Clara" maxlength="240" />
                   </label>
-                  <button class="button primary" type="submit">Team anlegen</button>
+                  <button class="button primary save-gated" type="submit">Team anlegen</button>
                 </form>
                 <div id="admin-teams" class="manage-list"></div>
-              </article>
-
-              <article class="admin-card" id="admin-jurors-section">
-                <h3>Juroren</h3>
-                <form id="create-juror-form" class="form-grid">
-                  <label>
-                    Name
-                    <input name="name" required maxlength="80" placeholder="Juror A" />
-                  </label>
-                  <button class="button primary" type="submit">Juror anlegen</button>
-                </form>
-                <div id="admin-jurors" class="manage-list"></div>
               </article>
 
               <article class="admin-card" id="admin-settings-section">
                 <h3>Einstellungen</h3>
                 <p class="team-members">Globale Gewinnlogik für die gesamte Ranglistenberechnung.</p>
-                <form id="settings-form" class="form-grid">
+                <form id="settings-form" class="form-grid" data-draft="settings">
                   <fieldset class="radio-fieldset">
                     <legend>Gewinnlogik</legend>
                     <label class="radio-row">
@@ -270,12 +280,10 @@
                       Niedrigste Punktzahl gewinnt
                     </label>
                   </fieldset>
-                  <button class="button primary" type="submit">Einstellungen speichern</button>
+                  <button class="button primary save-gated" type="submit">Einstellungen speichern</button>
                 </form>
               </article>
             </div>
-
-            <p id="admin-action-message" class="form-message" hidden></p>
           </div>
         </div>
       </section>

@@ -4,6 +4,7 @@ const {
   pointsForPlace,
   scoresFromTeamOrder,
   sortLeaderboardRows,
+  sortScoreRowsByWinnerMode,
 } = require("../lib/scoring");
 
 describe("pointsForPlace", () => {
@@ -81,5 +82,25 @@ describe("sortLeaderboardRows", () => {
     const ranked = sortLeaderboardRows(tied, "highest-score");
     assert.equal(ranked[0].name, "Adler");
     assert.equal(ranked[1].name, "Zebra");
+  });
+});
+
+describe("sortScoreRowsByWinnerMode", () => {
+  const scores = [
+    { team_name: "Blau", points: 30 },
+    { team_name: "Rot", points: 10 },
+    { team_name: "Grün", points: 20 },
+  ];
+
+  it("puts highest score first for highest-score mode", () => {
+    const ranked = sortScoreRowsByWinnerMode(scores, "highest-score");
+    assert.equal(ranked[0].team_name, "Blau");
+    assert.equal(ranked[0].rank, 1);
+  });
+
+  it("puts lowest score first for lowest-score mode", () => {
+    const ranked = sortScoreRowsByWinnerMode(scores, "lowest-score");
+    assert.equal(ranked[0].team_name, "Rot");
+    assert.equal(ranked[0].rank, 1);
   });
 });

@@ -9,6 +9,8 @@ const {
   parseInteger,
   parseHexColor,
   parseOptionalNote,
+  parseDate,
+  todayDateString,
 } = require("./helpers");
 
 const TEAM_COLOR_PRESETS = [
@@ -50,10 +52,10 @@ function createTeamsRouter(db) {
   `);
 
   const correctionsByTeamStmt = db.prepare(`
-    SELECT id, team_id, points, note, created_by, created_at, updated_at
+    SELECT id, team_id, points, note, created_by, created_at, updated_at, evaluation_date
     FROM score_corrections
     WHERE team_id = ?
-    ORDER BY created_at DESC, id DESC
+    ORDER BY evaluation_date DESC, created_at DESC, id DESC
   `);
 
   const getTeamStmt = db.prepare(
@@ -79,8 +81,8 @@ function createTeamsRouter(db) {
     "DELETE FROM members WHERE id = ? AND team_id = ?"
   );
   const insertCorrectionStmt = db.prepare(`
-    INSERT INTO score_corrections (team_id, points, note, created_by)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO score_corrections (team_id, points, note, created_by, evaluation_date)
+    VALUES (?, ?, ?, ?, ?)
   `);
 
   function nextDefaultColor() {
@@ -225,8 +227,11 @@ function createTeamsRouter(db) {
 
       const note = parseOptionalNote(req.body?.note);
       const createdBy = String(req.body?.created_by ?? "Admin").trim() || "Admin";
+      const evaluationDate = req.body?.evaluation_date
+        ? parseDate(req.body.evaluation_date, "evaluation_date")
+        : todayDateString();
 
-      insertCorrectionStmt.run(id, delta, note, createdBy);
+      insertCorrectionStmt.run(id, delta, note, createdBy, evaluationDate);
       syncTeamAdjustmentPoints(db, id);
       return res.json(enrichTeam(getTeamStmt.get(id)));
     } catch (error) {
