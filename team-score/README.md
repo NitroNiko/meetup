@@ -3,15 +3,17 @@
 Team-Score-Plattform mit Leaderboard für den Württembergischen Yacht-Club e.V.
 Eigenständige App unter `team-score/` – die ImmunoQuiz-App im Repository-Root bleibt unverändert.
 
-## Features (v2)
+## Features (v2.1)
 
 - Öffentliche Frontpage mit Leaderboard sowie offenen und abgeschlossenen Spielen
 - **Nur abgeschlossene Spiele** fließen in die Gesamtwertung ein
-- Globale **Gewinnlogik**: höchste oder niedrigste Punktzahl gewinnt
-- Spiel-Bewertungsmodi: **Platzierungswertung** und **Jurorenentscheidung**
-- Live-Zwischenstand der Jurorenwertung (nur Admin)
-- Punktekorrekturen mit optionaler **Notiz** (getrennt von der Spielwertung)
-- Kompakte Admin-Navigation zwischen Verwaltungsbereichen
+- Globale **Gewinnlogik** auch für Spielpunkt-Tabellen in „Spiele verwalten“
+- Spiel-Bewertungsmodi: **Platzierungswertung** und **Jurorenentscheidung** (Juror als Freitext)
+- Bewertungsdatum für Platzierung, Jury und Korrekturen (korrekte Tageswertung)
+- Soft-Delete einzelner Jurorenbewertungen
+- Toast-Feedback und Backend-Verbindungsstatus (inkl. Draft-Puffer)
+- Punktekorrekturen mit Notiz – getrennt von der Spielwertung
+- Kompakte Admin-Navigation
 - Persistenz in SQLite – gemeinsam nutzbar über mehrere Geräte im Netzwerk
 - Design angelehnt an [wyc-fn.de](https://www.wyc-fn.de) (Club-Blau, IBM Plex Sans, Logo & Hero)
 
